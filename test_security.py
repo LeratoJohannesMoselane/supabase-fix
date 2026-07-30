@@ -52,7 +52,7 @@ def check_env_file(project_path):
         issues.append("JWT_SECRET not found in .env file")
     
     # Check for default API keys
-    if "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9" in env_content:
+    if "dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE" in env_content or "DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q" in env_content:
         issues.append("Default API keys are being used")
     
     # Check for email autoconfirm in development

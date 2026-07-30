@@ -595,7 +595,7 @@ services:
       - name: cors
 
 consumers:
-  - username: anonymous
+  - username: anon
     keyauth_credentials:
       - key: {{ SUPABASE_ANON_KEY }}
   - username: service_role
@@ -870,6 +870,11 @@ docker compose ps
 EOL
 
 echo "Created README.md with instructions"
+
+if [ -f "./generate_keys.py" ]; then
+    echo "Generating secure API keys..."
+    python3 ./generate_keys.py --env-file "$PROJECT_NAME/.env"
+fi
 
 echo
 echo "Supabase project '$PROJECT_NAME' has been successfully created."

@@ -85,10 +85,51 @@ def update_env_file(env_file, jwt_secret, anon_key, service_key):
         print(f"Error updating .env file: {e}")
         return False
 
+def update_kong_file(kong_file, anon_key, service_key):
+    """Update the Kong configuration file with the new API keys."""
+    if not os.path.exists(kong_file):
+        return False
+    
+    backup_file = f"{kong_file}.bak.{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+    try:
+        with open(kong_file, 'r') as f:
+            original_content = f.read()
+        
+        with open(backup_file, 'w') as f:
+            f.write(original_content)
+        
+        # Replace the key for anon / anonymous consumer
+        pattern_anon = re.compile(
+            r'(username:\s*(?:anon|anonymous)\s*\r?\n\s*keyauth_credentials:\s*\r?\n\s*-\s*key:\s*)[^\r\n]+',
+            re.MULTILINE
+        )
+        updated_content = pattern_anon.sub(r'\g<1>' + anon_key, original_content)
+        
+        # Replace the key for service_role consumer
+        pattern_service = re.compile(
+            r'(username:\s*service_role\s*\r?\n\s*keyauth_credentials:\s*\r?\n\s*-\s*key:\s*)[^\r\n]+',
+            re.MULTILINE
+        )
+        updated_content = pattern_service.sub(r'\g<1>' + service_key, updated_content)
+        
+        if updated_content != original_content:
+            with open(kong_file, 'w') as f:
+                f.write(updated_content)
+            print(f"Created backup of Kong file: {backup_file}")
+            print(f"Updated Kong configuration with new API keys: {kong_file}")
+            return True
+        else:
+            print(f"No changes made to Kong configuration (patterns not matched): {kong_file}")
+            return False
+    except Exception as e:
+        print(f"Error updating Kong file: {e}")
+        return False
+
 def main():
     """Main entry point for the script."""
     parser = argparse.ArgumentParser(description="Generate secure API keys for Supabase")
     parser.add_argument("--env-file", help="Path to .env file to update")
+    parser.add_argument("--kong-file", help="Path to kong.yml file to update (default: inferred from --env-file)")
     parser.add_argument("--jwt-length", type=int, default=40, help="Length of JWT secret")
     parser.add_argument("--expiry-years", type=int, default=10, help="Expiry in years for JWT tokens")
     
@@ -114,10 +155,24 @@ def main():
     # Update .env file if specified
     if args.env_file:
         update_env_file(args.env_file, jwt_secret, anon_key, service_key)
+        
+        # Determine kong_file path
+        kong_file = args.kong_file
+        if not kong_file:
+            env_dir = Path(args.env_file).parent
+            inferred_kong = env_dir / "volumes" / "api" / "kong.yml"
+            if inferred_kong.exists():
+                kong_file = str(inferred_kong)
+        
+        if kong_file and os.path.exists(kong_file):
+            update_kong_file(kong_file, anon_key, service_key)
+            
         print("\nNext Steps:")
         print("1. Restart your Supabase deployment to apply the new keys:")
         print(f"   cd {os.path.dirname(args.env_file)} && docker compose down && docker compose up -d")
         print("2. Update your client applications with the new API keys")
+    elif args.kong_file:
+        update_kong_file(args.kong_file, anon_key, service_key)
     
     return 0
 
