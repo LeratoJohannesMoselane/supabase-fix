@@ -98,7 +98,24 @@ def update_env_file(project_path, dashboard_credentials):
         'ENABLE_PHONE_AUTOCONFIRM=false',
         env_content
     )
-    
+
+    # Automatically rotate API keys if default demo keys are present
+    if "dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE" in env_content or "DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q" in env_content:
+        print("Default API keys detected in .env. Automatically rotating JWT secret and API keys...")
+        try:
+            import generate_keys
+            jwt_secret = generate_keys.generate_jwt_secret(40)
+            anon_key = generate_keys.generate_jwt_token(jwt_secret, "anon", 10)
+            service_key = generate_keys.generate_jwt_token(jwt_secret, "service_role", 10)
+            env_content = re.sub(r'^JWT_SECRET=.*$', f'JWT_SECRET={jwt_secret}', env_content, flags=re.MULTILINE)
+            env_content = re.sub(r'^ANON_KEY=.*$', f'ANON_KEY={anon_key}', env_content, flags=re.MULTILINE)
+            env_content = re.sub(r'^SERVICE_ROLE_KEY=.*$', f'SERVICE_ROLE_KEY={service_key}', env_content, flags=re.MULTILINE)
+            kong_path = Path(project_path) / "volumes" / "api" / "kong.yml"
+            if kong_path.exists():
+                generate_keys.update_kong_file(str(kong_path), anon_key, service_key)
+        except Exception as e:
+            print(f"Warning: Could not automatically rotate keys: {e}")
+
     # Write the updated .env file
     with open(env_path, 'w') as f:
         f.write(env_content)
@@ -150,8 +167,8 @@ This checklist provides guidance on securing your Supabase deployment.
 ## Critical Security Items
 
 - [x] Dashboard credentials have been customized
-- [ ] JWT secret has been changed from default
-- [ ] API keys have been rotated
+- [x] JWT secret has been changed from default
+- [x] API keys have been rotated
 - [ ] Database password has been changed
 - [ ] SMTP server has been configured (if using email auth)
 

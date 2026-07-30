@@ -13,7 +13,7 @@ This checklist provides guidance on securing your self-hosted Supabase deploymen
 
 ## Database Security
 
-- [ ] **Review default roles and permissions**
+- [x] **Review default roles and permissions**
 - [ ] **Implement Row Level Security (RLS)** on all tables
   ```sql
   ALTER TABLE your_table ENABLE ROW LEVEL SECURITY;
@@ -47,10 +47,10 @@ This checklist provides guidance on securing your self-hosted Supabase deploymen
 ## API Security
 
 - [ ] **Keep your API keys secure** and never expose them in client-side code
-- [ ] **Use the anon key** for unauthenticated public access
+- [x] **Use the anon key** for unauthenticated public access
 - [ ] **Use the service key** only for trusted server environments
-- [ ] **Implement proper CORS settings** if needed
-- [ ] **Rate limit API requests** to prevent abuse
+- [x] **Implement proper CORS settings** if needed
+- [x] **Rate limit API requests** to prevent abuse
 
 ## Storage Security
 

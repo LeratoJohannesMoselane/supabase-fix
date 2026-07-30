@@ -14,6 +14,31 @@ import random
 import string
 from pathlib import Path
 
+try:
+    import jwt
+    import datetime
+    def generate_jwt_token(secret, role, expiry_years=10):
+        now = datetime.datetime.now()
+        iat = int(now.timestamp())
+        exp = int((now + datetime.timedelta(days=365 * expiry_years)).timestamp())
+        payload = {
+            "role": role,
+            "iss": "supabase",
+            "iat": iat,
+            "exp": exp
+        }
+        return jwt.encode(payload, secret, algorithm="HS256")
+except ImportError:
+    try:
+        from generate_keys import generate_jwt_token
+    except ImportError:
+        def generate_jwt_token(secret, role, expiry_years=10):
+            if role == "anon":
+                return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE"
+            else:
+                return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q"
+
+
 
 class SupabaseProjectGenerator:
     def __init__(self, project_name, base_port=None):
@@ -23,7 +48,10 @@ class SupabaseProjectGenerator:
         self.base_port = base_port
 
         # Ask if running on localhost first
-        is_localhost = input("Is this setup for localhost? (Y/N): ").strip().upper()
+        try:
+            is_localhost = input("Is this setup for localhost? (Y/N): ").strip().upper()
+        except (EOFError, KeyboardInterrupt):
+            is_localhost = 'Y'
 
         if is_localhost == 'Y':
             protocol = 'http://'
@@ -34,10 +62,14 @@ class SupabaseProjectGenerator:
             print("Configuring CORS to allow all origins (*)")
         else:
             # Prompt for CORS origin if not localhost
-            protocol = input("Enter the protocol for your domain (http or https): ").strip()
-            if not protocol.endswith("://"):
-                protocol += "://"
-            domain = input("Enter your domain (e.g., example.com): ").strip()
+            try:
+                protocol = input("Enter the protocol for your domain (http or https): ").strip()
+                if not protocol.endswith("://"):
+                    protocol += "://"
+                domain = input("Enter your domain (e.g., example.com): ").strip()
+            except (EOFError, KeyboardInterrupt):
+                protocol = "http://"
+                domain = "localhost"
             self.cors_origins_config = f'"{protocol}{domain}"' # Add quotes around the domain for YAML
 
         self.origin = f"{protocol}{domain}" # Still set self.origin for potential other uses (.env)
@@ -669,14 +701,17 @@ networks:
         vault_enc_key = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
         logflare_key = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
         
+        anon_key = generate_jwt_token(jwt_secret, "anon")
+        service_role_key = generate_jwt_token(jwt_secret, "service_role")
+        
         self.templates["env"] = f"""############
 # Secrets
 # YOU MUST CHANGE THESE BEFORE GOING INTO PRODUCTION
 ############
 POSTGRES_PASSWORD={password}
 JWT_SECRET={jwt_secret}
-ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE
-SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q
+ANON_KEY={anon_key}
+SERVICE_ROLE_KEY={service_role_key}
 DASHBOARD_USERNAME=supabase
 DASHBOARD_PASSWORD={self.project_name}
 SECRET_KEY_BASE={secret_key_base}
@@ -731,8 +766,8 @@ SMTP_PASS=fake_mail_password
 SMTP_SENDER_NAME=fake_sender
 ENABLE_ANONYMOUS_USERS=false
 ## Phone auth
-ENABLE_PHONE_SIGNUP=true
-ENABLE_PHONE_AUTOCONFIRM=true
+ENABLE_PHONE_SIGNUP=false
+ENABLE_PHONE_AUTOCONFIRM=false
 ############
 # Studio - Configuration for the Dashboard
 ############
@@ -968,6 +1003,10 @@ services:
             - Range-Unit
           credentials: true
           max_age: 3600
+      - name: rate-limiting
+        config:
+          minute: 100
+          policy: local
   - name: auth-v1-api
     url: http://{self.project_name}-auth:9999
     routes:
