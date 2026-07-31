@@ -1,0 +1,67 @@
+#!/bin/bash
+# supabase easy CLI wrapper
+# Usage: ./bin/supabase create myapp 8000
+#        ./bin/supabase start myapp
+#        ./bin/supabase list
+set -e
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT_DIR"
+
+cmd=$1; shift || true
+case "$cmd" in
+  create|new)
+    PROJECT=${1:-my-supabase}
+    PORT=${2:-8000}
+    ./deploy.sh "$PROJECT" "$PORT" --non-interactive --yes
+    ;;
+  start)
+    PROJECT=${1:-my-supabase}
+    cd "projects/$PROJECT" && docker compose up -d && docker compose ps
+    ;;
+  stop)
+    PROJECT=${1:-my-supabase}
+    cd "projects/$PROJECT" && docker compose down
+    ;;
+  restart)
+    PROJECT=${1:-my-supabase}
+    cd "projects/$PROJECT" && docker compose down && docker compose up -d
+    ;;
+  status|ps)
+    PROJECT=${1:-}
+    if [ -z "$PROJECT" ]; then python3 supabase_manager.py list; else python3 supabase_manager.py status "$PROJECT" || (cd "projects/$PROJECT" && docker compose ps); fi
+    ;;
+  list|ls)
+    python3 supabase_manager.py list || ls -1 projects/
+    ;;
+  logs)
+    PROJECT=${1:-my-supabase}
+    SERVICE=${2:-}
+    cd "projects/$PROJECT"
+    if [ -z "$SERVICE" ]; then docker compose logs -f --tail=200; else docker compose logs -f "$SERVICE"; fi
+    ;;
+  backup)
+    PROJECT=${1:-my-supabase}
+    ./scripts/backup.sh "$PROJECT"
+    ;;
+  deploy)
+    ./deploy.sh "$@"
+    ;;
+  help|*)
+    echo "Supabase Easy CLI"
+    echo "Usage:"
+    echo "  $0 create [project] [port]     Create & start new DB (one command)"
+    echo "  $0 start [project]             Start existing"
+    echo "  $0 stop [project]              Stop (keep data)"
+    echo "  $0 restart [project]           Restart"
+    echo "  $0 status [project]            Status"
+    echo "  $0 list                        List projects"
+    echo "  $0 logs [project] [service]    Follow logs"
+    echo "  $0 backup [project]            Backup DB+storage"
+    echo "  $0 deploy [project] [port] --domain example.com   Full deploy"
+    echo ""
+    echo "Examples:"
+    echo "  $0 create myapp 8000"
+    echo "  $0 logs myapp db"
+    echo "  $0 backup myapp"
+    ;;
+esac
