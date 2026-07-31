@@ -1,6 +1,17 @@
-# supabase-fix
+# supabase-fix — Easy Supabase DB on Ubuntu Server
 
-Self-hosted Supabase deployment tooling and Docker Compose configuration. This repo can generate/manage separate Supabase projects under `projects/<project-name>` with their own ports, `.env`, volumes, and Docker Compose files. It can also run a Supabase stack directly from the repository root when the required root `volumes/` config files are present.
+Self-hosted Supabase deployment tooling and Docker Compose configuration. **New: 1-command Ubuntu deploy** — see `docs/UBUNTU_EASY_WORKFLOW.md`.
+
+> 🚀 **Quick Ubuntu Install (TL;DR)**
+> ```bash
+> git clone https://github.com/LeratoJohannesMoselane/supabase-fix.git
+> cd supabase-fix
+> ./deploy.sh my-supabase 8000 --non-interactive --yes
+> cat projects/my-supabase/.credentials
+> ```
+> Studio → `http://YOUR_IP:10000`  |  API → `http://YOUR_IP:8000`  |  Docs: `docs/UBUNTU_EASY_WORKFLOW.md`
+
+This repo can generate/manage separate Supabase projects under `projects/<project-name>` with their own ports, `.env`, volumes, and Docker Compose files. It can also run a Supabase stack directly from the repository root when the required root `volumes/` config files are present.
 
 ## Table of contents
 
