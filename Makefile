@@ -19,7 +19,7 @@ PASS ?=
 ROOT_DIR := $(shell pwd)
 PROJECT_PATH := $(ROOT_DIR)/projects/$(PROJECT)
 
-.PHONY: help install-deps create start stop restart status logs backup deploy clean list quickstart
+.PHONY: help install-deps create start stop restart status logs backup weekly-backup setup-weekly-backup deploy clean list quickstart
 
 help:
 	@echo "Supabase Easy Makefile"
@@ -33,11 +33,18 @@ help:
 	@echo "  make restart PROJECT=name        Restart project"
 	@echo "  make status PROJECT=name         Show status"
 	@echo "  make logs PROJECT=name           Follow logs"
-	@echo "  make backup PROJECT=name         Backup DB + storage"
+	@echo "  make backup PROJECT=name         Backup DB + storage (one-off)"
+	@echo "  make weekly-backup PROJECT=name  Weekly backup with verify + retention"
+	@echo "  make setup-weekly-backup PROJECT=sony  Setup weekly cron Sunday 3am"
 	@echo "  make deploy PROJECT=name PORT=8000        One-command deploy (create+start)"
 	@echo "  make quickstart                  Quick localhost deploy: my-supabase 8000"
 	@echo "  make list                        List all projects"
 	@echo "  make clean PROJECT=name          WIPE data (danger!)"
+	@echo ""
+	@echo "Backup Examples:"
+	@echo "  make weekly-backup PROJECT=sony"
+	@echo "  make setup-weekly-backup PROJECT=sony"
+	@echo "  ./scripts/setup_weekly_backup.sh sony --day 0 --hour 3 --s3 s3://bucket/sony"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make deploy PROJECT=myapp PORT=8000"
@@ -108,6 +115,19 @@ backup:
 	@docker exec -t $(PROJECT)-db pg_dumpall -U postgres > $(PROJECT_PATH)/backups/$(PROJECT)_$$(date +%F_%H%M)_pg_dumpall.sql && echo "[OK] DB backup done" || echo "[FAIL] DB backup failed"
 	@tar -czf $(PROJECT_PATH)/backups/$(PROJECT)_$$(date +%F_%H%M)_storage.tar.gz -C $(PROJECT_PATH) volumes/storage 2>/dev/null && echo "[OK] Storage backup done" || echo "[WARN] No storage"
 	@ls -lh $(PROJECT_PATH)/backups | tail -n 20
+
+weekly-backup:
+	@echo "[*] Weekly backup for $(PROJECT)..."
+	@./scripts/weekly_backup.sh $(PROJECT) --verify
+	@ls -lh $(PROJECT_PATH)/backups/weekly | tail -n 20
+
+setup-weekly-backup:
+	@echo "[*] Setting up weekly backup cron for $(PROJECT) (Sunday 3am, keep 28 days)"
+	@./scripts/setup_weekly_backup.sh $(PROJECT) --day 0 --hour 3 --keep-days 28
+
+setup-weekly-backup-systemd:
+	@echo "[*] Setting up weekly backup systemd timer for $(PROJECT)"
+	@./scripts/setup_weekly_backup.sh $(PROJECT) --systemd --day 0 --hour 3 --keep-days 28
 
 deploy:
 	@echo "[*] One-command deploy: $(PROJECT) port $(PORT) domain $(DOMAIN)"
