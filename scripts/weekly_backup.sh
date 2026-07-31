@@ -14,19 +14,20 @@
 # =============================================================================
 set -e
 
-PROJECT=${1:-sony}
+PROJECT=${1:-}
 VERIFY=false
 S3_DEST=""
 KEEP_DAYS=${BACKUP_KEEP_DAYS:-28}   # 4 weeks default for weekly
 KEEP_COUNT=${BACKUP_KEEP_COUNT:-8}  # keep max 8 backups regardless of age
+ALL_MODE=false
 
-# Parse flags
+# Parse flags and detect --all
+ARGS=("$@")
 for arg in "$@"; do
   case "$arg" in
+    --all|-a|all) ALL_MODE=true ;;
     --verify) VERIFY=true ;;
-    --s3) 
-      # next arg is S3 destination
-      S3_NEXT=true ;;
+    --s3) S3_NEXT=true ;;
     s3://*)
       if [ "$S3_NEXT" = true ]; then
         S3_DEST="$arg"
@@ -37,11 +38,34 @@ for arg in "$@"; do
       ;;
   esac
 done
-# Handle --s3 <dest>
-if [[ "$2" == "--s3" ]]; then S3_DEST="$3"; fi
-if [[ "$3" == "--s3" ]]; then S3_DEST="$4"; fi
+# Handle --s3 <dest> as separate args
+for i in "${!ARGS[@]}"; do
+  if [[ "${ARGS[$i]}" == "--s3" && -n "${ARGS[$((i+1))]}" ]]; then
+    S3_DEST="${ARGS[$((i+1))]}"
+  fi
+done
+
+# Default project handling
+if [ -z "$PROJECT" ] || [[ "$PROJECT" == --* ]] || [ "$PROJECT" = "all" ]; then
+  if $ALL_MODE; then
+    PROJECT="all"
+  else
+    # If no project given, default to all if projects dir has >1 project, else sony
+    # For backwards compat, default to sony if exists, else all
+    PROJECT="sony"
+  fi
+fi
+# Strip flags from PROJECT if PROJECT looks like a flag
+if [[ "$PROJECT" == --* ]]; then PROJECT="sony"; fi
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+# If --all, delegate to backup_all_projects.sh
+if $ALL_MODE || [ "$PROJECT" = "all" ] || [ "$PROJECT" = "--all" ]; then
+  echo "[INFO] --all mode: backing up ALL projects via backup_all_projects.sh"
+  exec "$ROOT_DIR/scripts/backup_all_projects.sh" ${VERIFY:+--verify} ${S3_DEST:+--s3 $S3_DEST}
+  exit $?
+fi
 PROJECT_PATH="$ROOT_DIR/projects/$PROJECT"
 TIMESTAMP=$(date +%F_%H%M%S)
 DATESTAMP=$(date +%Y-%m-%d)

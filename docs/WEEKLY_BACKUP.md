@@ -1,16 +1,52 @@
-# Weekly Backup for Supabase (Sony Project Example)
+# Weekly Backup for Supabase – ALL Projects
 
-This guide sets up **automatic weekly backups** for your self-hosted Supabase, specifically for project `sony` but works for any project.
+This guide sets up **automatic weekly backups** for ALL your self-hosted Supabase projects (auto-discovers `projects/*`). Works for `sony` and every future project you create.
 
 We provide 2 methods: **cron (simple)** and **systemd timer (recommended for Ubuntu)**.
 
-Backups include:
+Backups include per project:
 - PostgreSQL full dump (`pg_dumpall` → `*.sql.gz`)
 - Storage files (`volumes/storage` → `*.tar.gz`) if using file backend
 - Config (`.env`, `.credentials`, `docker-compose.yml` → `*.tar.gz`, chmod 600)
 - SHA256 checksums + gzip verification
+- Global manifest + combined log
 
 Retention: default **28 days / 8 backups** for weekly = 4 weeks kept. Customize via `BACKUP_KEEP_DAYS` and `BACKUP_KEEP_COUNT`.
+
+## NEW: Backup ALL Projects (Recommended)
+
+If `sony` won't be your only project, use `--all`:
+
+```bash
+# Backup ALL projects now
+./scripts/backup_all_projects.sh --verify
+./scripts/weekly_backup.sh --all --verify          # alias
+make weekly-backup-all                              # Makefile
+
+# Setup weekly cron for ALL (Sunday 3am)
+./scripts/setup_weekly_backup.sh --all
+make setup-weekly-backup-all
+
+# Systemd for ALL
+./scripts/setup_weekly_backup.sh --all --systemd
+make setup-weekly-backup-all-systemd
+
+# ALL + S3 offsite
+./scripts/setup_weekly_backup.sh --all --s3 s3://my-bucket/supabase-all --day 0 --hour 3
+./scripts/backup_all_projects.sh --s3 s3://my-bucket/supabase-all --verify
+```
+
+Auto-discovery: every folder in `projects/` with `docker-compose.yml` is backed up. New projects you create tomorrow are automatically included – no need to re-setup cron.
+
+Outputs:
+```
+projects/
+├── sony/backups/weekly/sony_2025-08-03_030000_*.gz
+├── myapp/backups/weekly/myapp_2025-08-03_030000_*.gz
+├── another/backups/weekly/another_*.gz
+├── _all_backups.log                    # global log
+└── backups_weekly_all/2025-08-03_030000_MANIFEST.txt
+```
 
 ---
 

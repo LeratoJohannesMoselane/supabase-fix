@@ -121,13 +121,27 @@ weekly-backup:
 	@./scripts/weekly_backup.sh $(PROJECT) --verify
 	@ls -lh $(PROJECT_PATH)/backups/weekly | tail -n 20
 
+weekly-backup-all:
+	@echo "[*] Weekly backup for ALL projects..."
+	@./scripts/backup_all_projects.sh --verify
+	@ls -lh projects/backups_weekly_all | tail -n 20
+	@ls -lh projects/*/*/weekly 2>/dev/null | tail -n 40 || ls -lh projects/*/backups/weekly | tail -n 40
+
 setup-weekly-backup:
 	@echo "[*] Setting up weekly backup cron for $(PROJECT) (Sunday 3am, keep 28 days)"
 	@./scripts/setup_weekly_backup.sh $(PROJECT) --day 0 --hour 3 --keep-days 28
 
+setup-weekly-backup-all:
+	@echo "[*] Setting up weekly backup cron for ALL projects (Sunday 3am, keep 28 days)"
+	@./scripts/setup_weekly_backup.sh --all --day 0 --hour 3 --keep-days 28
+
 setup-weekly-backup-systemd:
 	@echo "[*] Setting up weekly backup systemd timer for $(PROJECT)"
 	@./scripts/setup_weekly_backup.sh $(PROJECT) --systemd --day 0 --hour 3 --keep-days 28
+
+setup-weekly-backup-all-systemd:
+	@echo "[*] Setting up weekly backup systemd timer for ALL projects"
+	@./scripts/setup_weekly_backup.sh --all --systemd --day 0 --hour 3 --keep-days 28
 
 deploy:
 	@echo "[*] One-command deploy: $(PROJECT) port $(PORT) domain $(DOMAIN)"
