@@ -560,7 +560,7 @@ services:
 
   db:
     container_name: {self.project_name}-db
-    image: supabase/postgres:15.8.1.085
+    image: supabase/postgres:17.6.1.136
     restart: unless-stopped
     volumes:
       - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
