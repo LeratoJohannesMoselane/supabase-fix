@@ -2,6 +2,14 @@ api:
   enabled: true
   address: 0.0.0.0:9001
 
+# NOTE: This is a TEMPLATE file. The placeholders below are replaced
+# when a new project is created by supabase_setup.py / bash/create_new_supabase.sh:
+#   __PROJECT__            -> <project_name>
+#   __ANALYTICS_SERVICE__  -> <project_name>-analytics
+#   __KONG_SERVICE__       -> <project_name>-kong  (kept for back-compat with older scripts)
+# When the master docker stack runs in the project root (no template substitution),
+# the literal "supabase-*" container names match the master docker-compose.yml.
+
 sources:
   docker_host:
     type: docker_logs
@@ -32,14 +40,17 @@ transforms:
     inputs:
       - project_logs
     route:
-      kong: '.appname == "__PROJECT__-kong"'
+      # In master, the API gateway is `envoy` by default and `kong` when the
+      # kong override is enabled. The realtime container name has a
+      # `realtime-dev.` prefix, which we match explicitly.
+      kong: '.appname == "__PROJECT__-kong" || .appname == "__PROJECT__-envoy"'
       auth: '.appname == "__PROJECT__-auth"'
       rest: '.appname == "__PROJECT__-rest"'
-      realtime: '.appname == "__PROJECT__-realtime"'
+      realtime: '.appname == "realtime-dev.__PROJECT__-realtime"'
       storage: '.appname == "__PROJECT__-storage"'
-      functions: '.appname == "__PROJECT__-functions"'
+      functions: '.appname == "__PROJECT__-edge-functions"'
       db: '.appname == "__PROJECT__-db"'
-
+  # Ignores non nginx errors since they are related with kong booting up
   kong_logs:
     type: remap
     inputs:
@@ -51,14 +62,18 @@ transforms:
           .metadata.request.headers.referer = req.referer
           .metadata.request.headers.user_agent = req.agent
           .metadata.request.headers.cf_connecting_ip = req.client
-          .metadata.request.method = req.method
-          .metadata.request.path = req.path
-          .metadata.request.protocol = req.protocol
           .metadata.response.status_code = req.status
+          url, split_err = split(req.request, " ")
+          if split_err == null {
+              .metadata.request.method = url[0]
+              .metadata.request.path = url[1]
+              .metadata.request.protocol = url[2]
+          }
       }
       if err != null {
         abort
       }
+  # Ignores non nginx errors since they are related with kong booting up
   kong_err:
     type: remap
     inputs:
@@ -82,6 +97,7 @@ transforms:
       if err != null {
         abort
       }
+  # Gotrue logs are structured json strings which frontend parses directly. But we keep metadata for consistency.
   auth_logs:
     type: remap
     inputs:
@@ -92,6 +108,7 @@ transforms:
           .metadata.timestamp = parsed.time
           .metadata = merge!(.metadata, parsed)
       }
+  # PostgREST logs are structured so we separate timestamp from message using regex
   rest_logs:
     type: remap
     inputs:
@@ -100,13 +117,20 @@ transforms:
       parsed, err = parse_regex(.event_message, r'^(?P<time>.*): (?P<msg>.*)$')
       if err == null {
           .event_message = parsed.msg
-          .timestamp = parsed.time
+          .timestamp = parse_timestamp!(value: parsed.time,format: "%d/%b/%Y:%H:%M:%S %z")
           .metadata.host = .project
       }
+  # Filter out healthcheck logs from Realtime
+  realtime_logs_filtered:
+    type: filter
+    inputs:
+      - router.realtime
+    condition: '!contains(string!(.event_message), "/health")'
+  # Realtime logs are structured so we parse the severity level using regex (ignore time because it has no date)
   realtime_logs:
     type: remap
     inputs:
-      - router.realtime
+      - realtime_logs_filtered
     source: |-
       .metadata.project = del(.project)
       .metadata.external_id = .metadata.project
@@ -115,6 +139,14 @@ transforms:
           .event_message = parsed.msg
           .metadata.level = parsed.level
       }
+  # Function logs are unstructured messages on stderr
+  functions_logs:
+    type: remap
+    inputs:
+      - router.functions
+    source: |-
+      .metadata.project_ref = del(.project)
+  # Storage logs may contain json objects so we parse them for completeness
   storage_logs:
     type: remap
     inputs:
@@ -130,6 +162,7 @@ transforms:
           .metadata.context[0].host = parsed.hostname
           .metadata.context[0].pid = parsed.pid
       }
+  # Postgres logs some messages to stderr which we map to warning severity level
   db_logs:
     type: remap
     inputs:
@@ -137,11 +170,13 @@ transforms:
     source: |-
       .metadata.host = "db-__PROJECT__"
       .metadata.parsed.timestamp = .timestamp
+
       parsed, err = parse_regex(.event_message, r'.*(?P<level>INFO|NOTICE|WARNING|ERROR|LOG|FATAL|PANIC?):.*', numeric_groups: true)
+
       if err != null || parsed == null {
         .metadata.parsed.error_severity = "info"
       }
-      if parsed != null {
+      if parsed.level != null {
        .metadata.parsed.error_severity = parsed.level
       }
       if .metadata.parsed.error_severity == "info" {
@@ -166,6 +201,11 @@ sinks:
       codec: json
     target: stdout
 
+  # Legacy local analytics sink used by older logflare versions (LOGFLARE_API_KEY
+  # is a project-level API key). Newer logflare (1.43.1) splits access into
+  # LOGFLARE_PUBLIC_ACCESS_TOKEN / LOGFLARE_PRIVATE_ACCESS_TOKEN and is wired up
+  # by volumes/logs/vector.yml (generated per project). We keep the legacy sink
+  # here so older installations keep working.
   logflare_auth:
     type: "http"
     inputs:

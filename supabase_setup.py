@@ -135,6 +135,15 @@ serve((_req) => new Response("Hello from Edge Functions!"));
         # Write to index.ts file inside the main directory, not to the directory itself
         (self.project_dir / "volumes/functions/main/index.ts").write_text(self.templates["function_main"])
         (self.project_dir / "reset.sh").write_text(self.templates["reset_script"])
+        # Make reset.sh executable so users can run ./reset.sh without chmod
+        try:
+            (self.project_dir / "reset.sh").chmod(0o755)
+        except OSError:
+            # Fall back to os.chmod if Path.chmod isn't available (very old Python)
+            try:
+                os.chmod(self.project_dir / "reset.sh", 0o755)
+            except OSError:
+                pass
         (self.project_dir / "README.md").write_text(self.templates["readme"])
         
     def _create_docker_compose_override(self):
@@ -232,7 +241,7 @@ name: {self.project_name}
 services:
   studio:
     container_name: {self.project_name}-studio
-    image: supabase/studio:latest
+    image: supabase/studio:2026.08.03-sha-022b374
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "echo ok"]
@@ -262,7 +271,7 @@ services:
 
   kong:
     container_name: {self.project_name}-kong
-    image: kong:2.8.1
+    image: kong/kong:3.9.3
     restart: unless-stopped
     ports:
       - "{self.ports['kong_http']}:8000/tcp"
@@ -287,7 +296,7 @@ services:
 
   auth:
     container_name: {self.project_name}-auth
-    image: supabase/gotrue:v2.170.0
+    image: supabase/gotrue:v2.189.0
     restart: unless-stopped
     healthcheck:
       test:
@@ -340,7 +349,7 @@ services:
 
   rest:
     container_name: {self.project_name}-rest
-    image: postgrest/postgrest:v12.2.8
+    image: postgrest/postgrest:v14.12
     restart: unless-stopped
     depends_on:
       db:
@@ -363,7 +372,7 @@ services:
 
   realtime:
     container_name: realtime-dev.{self.project_name}-realtime
-    image: supabase/realtime:v2.34.43
+    image: supabase/realtime:v2.102.3
     restart: unless-stopped
     depends_on:
       db:
@@ -407,7 +416,7 @@ services:
 
   storage:
     container_name: {self.project_name}-storage
-    image: supabase/storage-api:v1.19.3
+    image: supabase/storage-api:v1.60.4
     restart: unless-stopped
     volumes:
       - ./volumes/storage:/var/lib/storage:z
@@ -449,7 +458,7 @@ services:
 
   imgproxy:
     container_name: {self.project_name}-imgproxy
-    image: darthsim/imgproxy:v3.8.0
+    image: darthsim/imgproxy:v3.30.1
     restart: unless-stopped
     volumes:
       - ./volumes/storage:/var/lib/storage:z
@@ -471,7 +480,7 @@ services:
 
   meta:
     container_name: {self.project_name}-meta
-    image: supabase/postgres-meta:v0.87.1
+    image: supabase/postgres-meta:v0.96.6
     restart: unless-stopped
     depends_on:
       db:
@@ -489,7 +498,7 @@ services:
 
   functions:
     container_name: {self.project_name}-edge-functions
-    image: supabase/edge-runtime:v1.67.4
+    image: supabase/edge-runtime:v1.74.0
     restart: unless-stopped
     volumes:
       - ./volumes/functions:/home/deno/functions:Z
@@ -513,7 +522,7 @@ services:
 
   analytics:
     container_name: {self.project_name}-analytics
-    image: supabase/logflare:1.12.0
+    image: supabase/logflare:1.43.1
     restart: unless-stopped
     ports:
       - "{self.ports['analytics']}:4000"
@@ -551,7 +560,7 @@ services:
 
   db:
     container_name: {self.project_name}-db
-    image: supabase/postgres:15.8.1.060
+    image: supabase/postgres:15.8.1.085
     restart: unless-stopped
     volumes:
       - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
@@ -604,7 +613,7 @@ services:
 
   vector:
     container_name: {self.project_name}-vector
-    image: timberio/vector:0.28.1-alpine
+    image: timberio/vector:0.53.0-alpine
     restart: unless-stopped
     volumes:
       - ./volumes/logs/vector.yml:/etc/vector/vector.yml:ro,z
@@ -634,7 +643,7 @@ services:
 
   pooler:
     container_name: {self.project_name}-pooler
-    image: supabase/supavisor:2.4.14
+    image: supabase/supavisor:2.9.5
     restart: unless-stopped
     ports:
       - "{self.ports['pooler']}:6543"
@@ -1357,15 +1366,18 @@ services:
 
     def _init_pooler_template(self):
         """Initialize pooler configuration."""
-        self.templates["pooler"] = """{:ok, _} = Application.ensure_all_started(:supavisor)
+        # NOTE: this is an f-string so {self.project_name} is substituted at
+        # generation time. Single curly braces that should be left literal in
+        # the generated Elixir source must be doubled ({{ ... }}).
+        self.templates["pooler"] = f"""{{:ok, _}} = Application.ensure_all_started(:supavisor)
 
-{:ok, version} =
+{{:ok, version}} =
   case Supavisor.Repo.query!("select version()") do
-    %{rows: [[ver]]} -> Supavisor.Helpers.parse_pg_version(ver)
+    %{{rows: [[ver]]}} -> Supavisor.Helpers.parse_pg_version(ver)
     _ -> nil
   end
 
-params = %{
+params = %{{
   "external_id" => System.get_env("POOLER_TENANT_ID"),
   "db_host" => "{self.project_name}-db",
   "db_port" => System.get_env("POSTGRES_PORT"),
@@ -1374,18 +1386,18 @@ params = %{
   "auth_query" => "SELECT * FROM pgbouncer.get_auth($1)",
   "default_max_clients" => System.get_env("POOLER_MAX_CLIENT_CONN"),
   "default_pool_size" => System.get_env("POOLER_DEFAULT_POOL_SIZE"),
-  "default_parameter_status" => %{"server_version" => version},
-  "users" => [%{
+  "default_parameter_status" => %{{"server_version" => version}},
+  "users" => [{{
     "db_user" => "pgbouncer",
     "db_password" => System.get_env("POSTGRES_PASSWORD"),
     "mode_type" => System.get_env("POOLER_POOL_MODE"),
     "pool_size" => System.get_env("POOLER_DEFAULT_POOL_SIZE"),
     "is_manager" => true
-  }]
-}
+  }}]
+}}
 
 if !Supavisor.Tenants.get_tenant_by_external_id(params["external_id"]) do
-  {:ok, _} = Supavisor.Tenants.create_tenant(params)
+  {{:ok, _}} = Supavisor.Tenants.create_tenant(params)
 end
 """
 
