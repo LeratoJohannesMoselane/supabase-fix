@@ -232,7 +232,7 @@ name: {self.project_name}
 services:
   studio:
     container_name: {self.project_name}-studio
-    image: supabase/studio:latest
+    image: supabase/studio:2026.08.03-sha-022b374
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "echo ok"]
@@ -262,7 +262,7 @@ services:
 
   kong:
     container_name: {self.project_name}-kong
-    image: kong:2.8.1
+    image: kong/kong:3.9.3
     restart: unless-stopped
     ports:
       - "{self.ports['kong_http']}:8000/tcp"
@@ -287,7 +287,7 @@ services:
 
   auth:
     container_name: {self.project_name}-auth
-    image: supabase/gotrue:v2.170.0
+    image: supabase/gotrue:v2.189.0
     restart: unless-stopped
     healthcheck:
       test:
@@ -340,7 +340,7 @@ services:
 
   rest:
     container_name: {self.project_name}-rest
-    image: postgrest/postgrest:v12.2.8
+    image: postgrest/postgrest:v14.12
     restart: unless-stopped
     depends_on:
       db:
@@ -363,7 +363,7 @@ services:
 
   realtime:
     container_name: realtime-dev.{self.project_name}-realtime
-    image: supabase/realtime:v2.34.43
+    image: supabase/realtime:v2.102.3
     restart: unless-stopped
     depends_on:
       db:
@@ -407,7 +407,7 @@ services:
 
   storage:
     container_name: {self.project_name}-storage
-    image: supabase/storage-api:v1.19.3
+    image: supabase/storage-api:v1.60.4
     restart: unless-stopped
     volumes:
       - ./volumes/storage:/var/lib/storage:z
@@ -449,7 +449,7 @@ services:
 
   imgproxy:
     container_name: {self.project_name}-imgproxy
-    image: darthsim/imgproxy:v3.8.0
+    image: darthsim/imgproxy:v3.30.1
     restart: unless-stopped
     volumes:
       - ./volumes/storage:/var/lib/storage:z
@@ -471,7 +471,7 @@ services:
 
   meta:
     container_name: {self.project_name}-meta
-    image: supabase/postgres-meta:v0.87.1
+    image: supabase/postgres-meta:v0.96.6
     restart: unless-stopped
     depends_on:
       db:
@@ -489,7 +489,7 @@ services:
 
   functions:
     container_name: {self.project_name}-edge-functions
-    image: supabase/edge-runtime:v1.67.4
+    image: supabase/edge-runtime:v1.74.0
     restart: unless-stopped
     volumes:
       - ./volumes/functions:/home/deno/functions:Z
@@ -513,7 +513,7 @@ services:
 
   analytics:
     container_name: {self.project_name}-analytics
-    image: supabase/logflare:1.12.0
+    image: supabase/logflare:1.43.1
     restart: unless-stopped
     ports:
       - "{self.ports['analytics']}:4000"
@@ -551,7 +551,7 @@ services:
 
   db:
     container_name: {self.project_name}-db
-    image: supabase/postgres:15.8.1.060
+    image: supabase/postgres:15.8.1.085
     restart: unless-stopped
     volumes:
       - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
@@ -604,7 +604,7 @@ services:
 
   vector:
     container_name: {self.project_name}-vector
-    image: timberio/vector:0.28.1-alpine
+    image: timberio/vector:0.53.0-alpine
     restart: unless-stopped
     volumes:
       - ./volumes/logs/vector.yml:/etc/vector/vector.yml:ro,z
@@ -634,7 +634,7 @@ services:
 
   pooler:
     container_name: {self.project_name}-pooler
-    image: supabase/supavisor:2.4.14
+    image: supabase/supavisor:2.9.5
     restart: unless-stopped
     ports:
       - "{self.ports['pooler']}:6543"

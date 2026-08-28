@@ -39,7 +39,10 @@ Main files:
 
 | File / folder | Purpose |
 | --- | --- |
-| `docker-compose.yml` | Base self-hosted Supabase Docker Compose stack. |
+| `docker-compose.yml` | Base self-hosted Supabase Docker Compose stack (Postgres 17 + Envoy API gateway). |
+| `docker-compose.kong.yml` | Optional override that swaps the default Envoy gateway for Kong. |
+| `docker-compose.logs.yml` | Optional override that adds Logflare (analytics) + Vector (log pipeline). |
+| `docker-compose.pg15.yml` | Optional override that pins the database to Postgres 15. |
 | `docker-compose.aws.yml` | AWS override for S3-backed storage and AWS-friendly settings. |
 | `.env.aws.example` | Example environment file for AWS/RDS/S3 deployments. Copy to `.env` and edit. |
 | `supabase_manager.py` | CLI for creating, starting, stopping, listing, and resetting generated projects. |
@@ -51,7 +54,65 @@ Main files:
 | `volumes/` | Root-stack bind-mounted config/data folders. Generated projects get their own `volumes/`. |
 | `docs/` | AWS deployment, ports, Realtime config, and troubleshooting guides. |
 
-The stack includes Supabase Studio, Kong, Auth, PostgREST, Realtime, Storage, ImgProxy, Postgres Meta, Edge Functions, Logflare/Analytics, Vector, Postgres, and Supavisor.
+The stack includes Supabase Studio, the API gateway (Envoy by default, Kong via override), Auth, PostgREST, Realtime, Storage, ImgProxy, Postgres Meta, Edge Functions, Logflare/Analytics, Vector, Postgres, and Supavisor.
+
+### Image versions (latest, matching supabase `master`)
+
+| Service | Image | Version |
+| --- | --- | --- |
+| Studio | `supabase/studio` | `2026.08.03-sha-022b374` |
+| API gateway (default) | `envoyproxy/envoy` | `v1.39.0` |
+| API gateway (override) | `kong/kong` | `3.9.3` |
+| Auth (GoTrue) | `supabase/gotrue` | `v2.189.0` |
+| REST (PostgREST) | `postgrest/postgrest` | `v14.12` |
+| Realtime | `supabase/realtime` | `v2.102.3` |
+| Storage | `supabase/storage-api` | `v1.60.4` |
+| ImgProxy | `darthsim/imgproxy` | `v3.30.1` |
+| Meta | `supabase/postgres-meta` | `v0.96.6` |
+| Edge Functions | `supabase/edge-runtime` | `v1.74.0` |
+| Database (default) | `supabase/postgres` | `17.6.1.136` |
+| Database (PG15 override) | `supabase/postgres` | `15.8.1.085` |
+| Supavisor (pooler) | `supabase/supavisor` | `2.9.5` |
+| Analytics (Logflare) | `supabase/logflare` | `1.43.1` |
+| Vector | `timberio/vector` | `0.53.0-alpine` |
+
+### API gateway
+
+The default API gateway in this stack is **Envoy** (`api-gw` service), which
+matches the latest official supabase `master` branch. To keep using Kong
+instead, append the override file:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.kong.yml up -d
+```
+
+The Kong override keeps the legacy `kong`/`envoy` network aliases working so
+internal configs that reference either hostname resolve to the active gateway.
+
+### Postgres 17 (default) vs Postgres 15
+
+Postgres 17 (`supabase/postgres:17.6.1.136`) is the new default. If you are
+upgrading an existing Postgres 15 deployment, use `docker-compose.pg15.yml`
+first and then follow the in-place upgrade at
+<https://supabase.com/docs/guides/self-hosting/postgres-upgrade-17>. To stay
+on Postgres 15:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.pg15.yml up -d
+```
+
+### Analytics (Logflare) and Vector
+
+Logflare (`analytics`) and Vector are now shipped as an opt-in override to
+match the upstream `master` branch layout. To enable logging:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.logs.yml up -d
+```
+
+The latest Logflare image expects `LOGFLARE_PUBLIC_ACCESS_TOKEN` and
+`LOGFLARE_PRIVATE_ACCESS_TOKEN` in `.env` (the older single `LOGFLARE_API_KEY`
+is still accepted for backwards compatibility).
 
 ## Important data-safety notes
 
@@ -208,7 +269,12 @@ The recommended way to start fresh is still `setup_secure_supabase.sh`, because 
 The root `docker-compose.yml` is useful when this repository root itself is the deployment folder. Before running it, confirm these required files exist:
 
 ```bash
-ls volumes/api/kong.yml \
+ls volumes/api/envoy/envoy.yaml \
+   volumes/api/envoy/cds.yaml \
+   volumes/api/envoy/lds.template.yaml \
+   volumes/api/envoy/docker-entrypoint.sh \
+   volumes/api/kong.yml \
+   volumes/api/kong-entrypoint.sh \
    volumes/logs/vector.yml \
    volumes/pooler/pooler.exs \
    volumes/db/_supabase.sql \

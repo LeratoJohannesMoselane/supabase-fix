@@ -8,22 +8,25 @@
 # - CloudWatch logging (optional)
 # - Optimized health checks for AWS
 #
+# The stack defaults to the new Envoy API gateway (`api-gw` service). If you
+# still want Kong, append -f docker-compose.kong.yml to the `docker compose`
+# command and point your ALB target group at the Kong HTTPS listener (8443).
+#
 # Prerequisites:
 # - AWS IAM role with S3 access OR AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
 # - (Optional) External RDS PostgreSQL instance
-# - ALB/NLB configured to point to Kong port 8000
+# - ALB/NLB configured to point to the api-gw (Envoy) port 8000
 # - Security groups allowing traffic between services
 
-version: '3.8'
-
 services:
-  # Kong API Gateway - Entry point for ALB
-  kong:
-    # Remove port mappings if using ALB - ALB should target Kong directly on internal network
-    # Comment out 'ports' section if Kong is accessed only through ALB
+  # API gateway (default = Envoy). The `api-gw` service also exposes itself as
+  # the `kong` and `envoy` network aliases, so older Kong-aware configs keep
+  # resolving the same hostname. Comment out the port mappings below if the
+  # api-gw is reached only through the ALB.
+  api-gw:
     ports:
       - "8000:8000"  # HTTP - Comment out if using ALB
-      # - "8443:8443"  # HTTPS - Comment out if terminating SSL at ALB
+      # - "8443:8443"  # HTTPS - Only used by the docker-compose.kong.yml override
     environment:
       # Add DNS search for better container resolution in cloud environments
       # This helps resolve service names consistently
@@ -33,8 +36,8 @@ services:
     #   driver: awslogs
     #   options:
     #     awslogs-region: us-east-1
-    #     awslogs-group: /ecs/supabase-kong
-    #     awslogs-stream-prefix: kong
+    #     awslogs-group: /ecs/supabase-envoy
+    #     awslogs-stream-prefix: envoy
 
   # Storage - AWS S3 Backend
   storage:
@@ -153,7 +156,7 @@ services:
     #     awslogs-group: /ecs/supabase-functions
     #     awslogs-stream-prefix: functions
 
-  # Analytics
+  # Analytics - shipped in docker-compose.logs.yml
   analytics:
     # Uncomment for CloudWatch logging
     # logging:
@@ -164,13 +167,14 @@ services:
     #     awslogs-stream-prefix: analytics
 
 # Health check endpoints for ALB Target Groups:
-# - Kong: http://kong:8000/ (returns 404 but means Kong is running)
-# - Studio: http://studio:3000/api/profile (requires auth)
-# - Auth: http://auth:9999/health
-# - Storage: http://storage:5000/status
-# - Realtime: http://realtime:4000/api/tenants/realtime-dev/health (requires JWT)
-# - Rest: http://rest:3000/ (returns Swagger UI)
-# - Analytics: http://analytics:4000/health
+# - api-gw (Envoy): tcp/8000 (TCP check; the image has no curl/wget)
+# - api-gw (Kong, when -f docker-compose.kong.yml is used): tcp/8000 (or tcp/8443 for HTTPS)
+# - Studio:        http://studio:3000/api/profile (requires auth)
+# - Auth:          http://auth:9999/health
+# - Storage:       http://storage:5000/status
+# - Realtime:      http://realtime:4000/api/tenants/realtime-dev/health (requires JWT)
+# - Rest:          http://rest:3000/ (returns Swagger UI)
+# - Analytics:     http://analytics:4000/health
 
 # AWS-Specific Notes:
 # 1. IAM Role for ECS/EC2 (Recommended):
@@ -191,23 +195,23 @@ services:
 #    }
 #
 # 3. Security Group Rules:
-#    - Allow inbound 8000 (Kong) from ALB security group
+#    - Allow inbound 8000 (api-gw) from ALB security group
 #    - Allow all outbound traffic
 #    - Allow internal communication between all services
 #
 # 4. ALB Target Group Settings:
 #    - Protocol: HTTP
 #    - Port: 8000
-#    - Health check path: /
+#    - Health check path: / (or TCP-only, the api-gw image has no curl)
 #    - Health check interval: 30s
 #    - Healthy threshold: 2
 #    - Unhealthy threshold: 3
 #    - Timeout: 5s
-#    - Success codes: 404 (Kong returns 404 for root)
+#    - Success codes: 200-399
 #    - Stickiness: Enable for WebSocket (Realtime) support
 #
 # 5. RDS Configuration (if using external database):
-#    - PostgreSQL 15.x
+#    - PostgreSQL 17.x (matches the new image default) or 15.x
 #    - Set POSTGRES_HOST to RDS endpoint
 #    - Ensure security group allows 5432 from EC2/ECS
 #    - Enable automated backups
