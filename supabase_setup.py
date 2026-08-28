@@ -135,6 +135,15 @@ serve((_req) => new Response("Hello from Edge Functions!"));
         # Write to index.ts file inside the main directory, not to the directory itself
         (self.project_dir / "volumes/functions/main/index.ts").write_text(self.templates["function_main"])
         (self.project_dir / "reset.sh").write_text(self.templates["reset_script"])
+        # Make reset.sh executable so users can run ./reset.sh without chmod
+        try:
+            (self.project_dir / "reset.sh").chmod(0o755)
+        except OSError:
+            # Fall back to os.chmod if Path.chmod isn't available (very old Python)
+            try:
+                os.chmod(self.project_dir / "reset.sh", 0o755)
+            except OSError:
+                pass
         (self.project_dir / "README.md").write_text(self.templates["readme"])
         
     def _create_docker_compose_override(self):
@@ -1357,15 +1366,18 @@ services:
 
     def _init_pooler_template(self):
         """Initialize pooler configuration."""
-        self.templates["pooler"] = """{:ok, _} = Application.ensure_all_started(:supavisor)
+        # NOTE: this is an f-string so {self.project_name} is substituted at
+        # generation time. Single curly braces that should be left literal in
+        # the generated Elixir source must be doubled ({{ ... }}).
+        self.templates["pooler"] = f"""{{:ok, _}} = Application.ensure_all_started(:supavisor)
 
-{:ok, version} =
+{{:ok, version}} =
   case Supavisor.Repo.query!("select version()") do
-    %{rows: [[ver]]} -> Supavisor.Helpers.parse_pg_version(ver)
+    %{{rows: [[ver]]}} -> Supavisor.Helpers.parse_pg_version(ver)
     _ -> nil
   end
 
-params = %{
+params = %{{
   "external_id" => System.get_env("POOLER_TENANT_ID"),
   "db_host" => "{self.project_name}-db",
   "db_port" => System.get_env("POSTGRES_PORT"),
@@ -1374,18 +1386,18 @@ params = %{
   "auth_query" => "SELECT * FROM pgbouncer.get_auth($1)",
   "default_max_clients" => System.get_env("POOLER_MAX_CLIENT_CONN"),
   "default_pool_size" => System.get_env("POOLER_DEFAULT_POOL_SIZE"),
-  "default_parameter_status" => %{"server_version" => version},
-  "users" => [%{
+  "default_parameter_status" => %{{"server_version" => version}},
+  "users" => [{{
     "db_user" => "pgbouncer",
     "db_password" => System.get_env("POSTGRES_PASSWORD"),
     "mode_type" => System.get_env("POOLER_POOL_MODE"),
     "pool_size" => System.get_env("POOLER_DEFAULT_POOL_SIZE"),
     "is_manager" => true
-  }]
-}
+  }}]
+}}
 
 if !Supavisor.Tenants.get_tenant_by_external_id(params["external_id"]) do
-  {:ok, _} = Supavisor.Tenants.create_tenant(params)
+  {{:ok, _}} = Supavisor.Tenants.create_tenant(params)
 end
 """
 
