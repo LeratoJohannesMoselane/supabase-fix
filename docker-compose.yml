@@ -19,7 +19,7 @@ services:
 
   studio:
     container_name: supabase-studio
-    image: supabase/studio:2026.08.03-sha-022b374
+    image: supabase/studio:2026.08.24-sha-8ec45b2
     restart: unless-stopped
     healthcheck:
       test:
@@ -75,7 +75,7 @@ services:
   # To use Kong instead, see: docker-compose.kong.yml
   api-gw:
     container_name: supabase-envoy
-    image: envoyproxy/envoy:v1.39.0
+    image: envoyproxy/envoy:v1.39.1
     restart: unless-stopped
     networks:
       default:
@@ -114,7 +114,7 @@ services:
 
   auth:
     container_name: supabase-auth
-    image: supabase/gotrue:v2.189.0
+    image: supabase/gotrue:v2.196.0
     restart: unless-stopped
     healthcheck:
       test:
@@ -254,7 +254,7 @@ services:
 
   rest:
     container_name: supabase-rest
-    image: postgrest/postgrest:v14.12
+    image: postgrest/postgrest:v16.2
     restart: unless-stopped
     depends_on:
       db:
@@ -280,7 +280,13 @@ services:
       # PGRST_JWT_SECRET: ${JWT_JWKS}
       PGRST_JWT_SECRET: ${JWT_JWKS:-${JWT_SECRET}}
 
-      PGRST_DB_USE_LEGACY_GUCS: "false"
+      # `db-use-legacy-gucs` was removed in PostgREST v11.2, so it is no longer set here.
+      # PostgREST v16: embedded resources referenced by relation name when they have an
+      # alias are deprecated. Keep `true` for backwards compatible query strings (a
+      # deprecation `Warning` header is returned); set to `false` to enforce alias-only
+      # filters/orders/limits. See: https://docs.postgrest.org/en/v16/references/configuration.html#url-use-legacy-target-names
+      PGRST_URL_USE_LEGACY_TARGET_NAMES: ${PGRST_URL_USE_LEGACY_TARGET_NAMES:-true}
+
       PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET}
       PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXPIRY}
     command:
@@ -291,7 +297,7 @@ services:
   realtime:
     # This container name looks inconsistent but is correct because realtime constructs tenant id by parsing the subdomain
     container_name: realtime-dev.supabase-realtime
-    image: supabase/realtime:v2.102.3
+    image: supabase/realtime:v2.130.0
     restart: unless-stopped
     depends_on:
       db:
@@ -337,7 +343,7 @@ services:
   # To use S3 backed storage: docker compose -f docker-compose.yml -f docker-compose.s3.yml up
   storage:
     container_name: supabase-storage
-    image: supabase/storage-api:v1.60.4
+    image: supabase/storage-api:v1.72.1
     restart: unless-stopped
     depends_on:
       db:
@@ -376,21 +382,21 @@ services:
       DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       STORAGE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL}
       REQUEST_ALLOW_X_FORWARDED_PATH: "true"
-      FILE_SIZE_LIMIT: 52428800
+      # storage-api v1.7x option names (the legacy names in comments still work as fallbacks)
+      UPLOAD_FILE_SIZE_LIMIT: 52428800          # legacy: FILE_SIZE_LIMIT
       STORAGE_BACKEND: file
       # S3 bucket when using S3 backend, directory name when using 'file'
-      GLOBAL_S3_BUCKET: ${GLOBAL_S3_BUCKET}
+      STORAGE_S3_BUCKET: ${GLOBAL_S3_BUCKET}    # legacy: GLOBAL_S3_BUCKET
       # S3 Backend configuration
-      #GLOBAL_S3_ENDPOINT: https://your-s3-endpoint
-      #GLOBAL_S3_PROTOCOL: https
-      #GLOBAL_S3_FORCE_PATH_STYLE: "true"
+      #STORAGE_S3_ENDPOINT: https://your-s3-endpoint
+      #STORAGE_S3_FORCE_PATH_STYLE: "true"
       #AWS_ACCESS_KEY_ID: your-access-key-id
       #AWS_SECRET_ACCESS_KEY: your-secret-access-key
-      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      STORAGE_FILE_BACKEND_PATH: /var/lib/storage   # legacy: FILE_STORAGE_BACKEND_PATH
       TENANT_ID: ${STORAGE_TENANT_ID}
       # TODO: https://github.com/supabase/storage-api/issues/55
-      REGION: ${REGION}
-      ENABLE_IMAGE_TRANSFORMATION: "true"
+      SERVER_REGION: ${REGION}                  # legacy: REGION
+      IMAGE_TRANSFORMATION_ENABLED: "true"      # legacy: ENABLE_IMAGE_TRANSFORMATION
       IMGPROXY_URL: http://imgproxy:5001
       # S3 protocol endpoint configuration
       S3_PROTOCOL_ACCESS_KEY_ID: ${S3_PROTOCOL_ACCESS_KEY_ID}
@@ -400,7 +406,7 @@ services:
 
   imgproxy:
     container_name: supabase-imgproxy
-    image: darthsim/imgproxy:v3.30.1
+    image: darthsim/imgproxy:v4.0.14
     restart: unless-stopped
     volumes:
       - ./volumes/storage:/var/lib/storage:z
@@ -415,15 +421,23 @@ services:
       interval: 5s
       retries: 3
     environment:
+      # imgproxy v4 option names. Notes on the v3 -> v4 upgrade:
+      #   - IMGPROXY_USE_ETAG / IMGPROXY_USE_LAST_MODIFIED are now enabled by default
+      #   - IMGPROXY_CONCURRENCY was removed, use IMGPROXY_WORKERS instead
+      #   - IMGPROXY_READ_TIMEOUT / IMGPROXY_WRITE_TIMEOUT were removed, use
+      #     IMGPROXY_READ_REQUEST_TIMEOUT / IMGPROXY_TIMEOUT instead
+      #   - OpenTelemetry is configured through the standard OTEL_* variables
       IMGPROXY_BIND: ":5001"
       IMGPROXY_LOCAL_FILESYSTEM_ROOT: /
       IMGPROXY_USE_ETAG: "true"
       IMGPROXY_AUTO_WEBP: ${IMGPROXY_AUTO_WEBP}
       IMGPROXY_MAX_SRC_RESOLUTION: 16.8
+      # Uncomment to cap the number of processing workers (defaults to the CPU count)
+      #IMGPROXY_WORKERS: 4
 
   meta:
     container_name: supabase-meta
-    image: supabase/postgres-meta:v0.96.6
+    image: supabase/postgres-meta:v0.98.0
     restart: unless-stopped
     depends_on:
       db:
@@ -440,7 +454,7 @@ services:
 
   functions:
     container_name: supabase-edge-functions
-    image: supabase/edge-runtime:v1.74.0
+    image: supabase/edge-runtime:v1.74.3
     restart: unless-stopped
     volumes:
       - ./volumes/functions:/home/deno/functions:z
@@ -482,7 +496,7 @@ services:
   db:
     container_name: supabase-db
     # To upgrade an existing Postgres 15 database in place, see utils/upgrade-pg17.sh.
-    image: supabase/postgres:17.6.1.136
+    image: supabase/postgres:17.6.1.166
     restart: unless-stopped
     volumes:
       - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
@@ -537,7 +551,7 @@ services:
   # Update the DATABASE_URL if you are using an external Postgres database
   supavisor:
     container_name: supabase-pooler
-    image: supabase/supavisor:2.9.5
+    image: supabase/supavisor:2.9.7
     restart: unless-stopped
     ports:
       - ${POSTGRES_PORT}:5432

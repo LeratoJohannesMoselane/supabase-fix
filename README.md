@@ -56,25 +56,37 @@ Main files:
 
 The stack includes Supabase Studio, the API gateway (Envoy by default, Kong via override), Auth, PostgREST, Realtime, Storage, ImgProxy, Postgres Meta, Edge Functions, Logflare/Analytics, Vector, Postgres, and Supavisor.
 
-### Image versions (latest, matching supabase `master`)
+### Image versions (latest published tags, checked 2026-08-28)
 
 | Service | Image | Version |
 | --- | --- | --- |
-| Studio | `supabase/studio` | `2026.08.03-sha-022b374` |
-| API gateway (default) | `envoyproxy/envoy` | `v1.39.0` |
+| Studio | `supabase/studio` | `2026.08.24-sha-8ec45b2` |
+| API gateway (default) | `envoyproxy/envoy` | `v1.39.1` |
 | API gateway (override) | `kong/kong` | `3.9.3` |
-| Auth (GoTrue) | `supabase/gotrue` | `v2.189.0` |
-| REST (PostgREST) | `postgrest/postgrest` | `v14.12` |
-| Realtime | `supabase/realtime` | `v2.102.3` |
-| Storage | `supabase/storage-api` | `v1.60.4` |
-| ImgProxy | `darthsim/imgproxy` | `v3.30.1` |
-| Meta | `supabase/postgres-meta` | `v0.96.6` |
-| Edge Functions | `supabase/edge-runtime` | `v1.74.0` |
-| Database (default) | `supabase/postgres` | `17.6.1.136` |
-| Database (PG15 override) | `supabase/postgres` | `15.8.1.085` |
-| Supavisor (pooler) | `supabase/supavisor` | `2.9.5` |
-| Analytics (Logflare) | `supabase/logflare` | `1.43.1` |
-| Vector | `timberio/vector` | `0.53.0-alpine` |
+| Auth (GoTrue) | `supabase/gotrue` | `v2.196.0` |
+| REST (PostgREST) | `postgrest/postgrest` | `v16.2` |
+| Realtime | `supabase/realtime` | `v2.130.0` |
+| Storage | `supabase/storage-api` | `v1.72.1` |
+| ImgProxy | `darthsim/imgproxy` | `v4.0.14` |
+| Meta | `supabase/postgres-meta` | `v0.98.0` |
+| Edge Functions | `supabase/edge-runtime` | `v1.74.3` |
+| Database (default) | `supabase/postgres` | `17.6.1.166` |
+| Database (PG15 override) | `supabase/postgres` | `15.14.1.166` |
+| Supavisor (pooler) | `supabase/supavisor` | `2.9.7` |
+| Analytics (Logflare) | `supabase/logflare` | `1.50.7` |
+| Vector | `timberio/vector` | `0.58.0-alpine` |
+
+> `supabase/supavisor` is pinned to `2.9.7` because that is the newest tag
+> published to Docker Hub, even though the GitHub project has tagged `v2.9.12`.
+
+#### Environment variables that changed with these versions
+
+| Service | Change |
+| --- | --- |
+| PostgREST v16 | `PGRST_DB_USE_LEGACY_GUCS` removed (gone since v11.2). New `PGRST_URL_USE_LEGACY_TARGET_NAMES` (default `true`) controls the deprecated "filter an aliased embedded resource by its relation name" behaviour. |
+| Storage v1.72 | Option names modernised: `FILE_SIZE_LIMIT` -> `UPLOAD_FILE_SIZE_LIMIT`, `FILE_STORAGE_BACKEND_PATH` -> `STORAGE_FILE_BACKEND_PATH`, `GLOBAL_S3_*` -> `STORAGE_S3_*`, `REGION` -> `SERVER_REGION`, `ENABLE_IMAGE_TRANSFORMATION` -> `IMAGE_TRANSFORMATION_ENABLED` (the old names still work as fallbacks). |
+| ImgProxy v4 | `IMGPROXY_ENABLE_WEBP_DETECTION` removed -> use `IMGPROXY_AUTO_WEBP`; `IMGPROXY_CONCURRENCY` -> `IMGPROXY_WORKERS`; `IMGPROXY_READ_TIMEOUT`/`IMGPROXY_WRITE_TIMEOUT` -> `IMGPROXY_READ_REQUEST_TIMEOUT`/`IMGPROXY_TIMEOUT`; OpenTelemetry now uses the standard `OTEL_*` variables. `IMGPROXY_USE_ETAG`/`IMGPROXY_USE_LAST_MODIFIED` default to `true`. |
+| Vector 0.58 | `${VAR}` interpolation inside config files is disabled by default since 0.57, so the `vector` service now sets `VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION=true` (`volumes/logs/vector.yml` interpolates the Logflare key). |
 
 ### API gateway
 
@@ -91,7 +103,7 @@ internal configs that reference either hostname resolve to the active gateway.
 
 ### Postgres 17 (default) vs Postgres 15
 
-Postgres 17 (`supabase/postgres:17.6.1.136`) is the new default. If you are
+Postgres 17 (`supabase/postgres:17.6.1.166`) is the new default. If you are
 upgrading an existing Postgres 15 deployment, use `docker-compose.pg15.yml`
 first and then follow the in-place upgrade at
 <https://supabase.com/docs/guides/self-hosting/postgres-upgrade-17>. To stay

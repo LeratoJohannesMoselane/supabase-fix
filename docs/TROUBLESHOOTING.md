@@ -363,9 +363,10 @@ Status: 403
    STORAGE_BACKEND=s3
    AWS_REGION=us-east-1
    AWS_S3_BUCKET=your-bucket-name
-   GLOBAL_S3_BUCKET=your-bucket-name
-   GLOBAL_S3_PROTOCOL=https
-   GLOBAL_S3_FORCE_PATH_STYLE=false  # false for AWS S3
+   # storage-api v1.7x names (legacy GLOBAL_S3_* names still work as fallbacks)
+   STORAGE_S3_BUCKET=your-bucket-name
+   STORAGE_S3_REGION=us-east-1
+   STORAGE_S3_FORCE_PATH_STYLE=false  # false for AWS S3
    ```
 
 4. **Check if using IAM role (recommended) or access keys:**

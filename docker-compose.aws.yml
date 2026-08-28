@@ -53,17 +53,17 @@ services:
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}  # Leave empty if using IAM roles
       AWS_DEFAULT_REGION: ${AWS_REGION:-us-east-1}
 
-      # S3 Bucket Configuration
-      GLOBAL_S3_BUCKET: ${AWS_S3_BUCKET}  # Required: Your S3 bucket name
-      REGION: ${AWS_REGION:-us-east-1}
-      GLOBAL_S3_PROTOCOL: https
+      # S3 Bucket Configuration (storage-api v1.7x names; legacy GLOBAL_S3_* still works)
+      STORAGE_S3_BUCKET: ${AWS_S3_BUCKET}  # Required: Your S3 bucket name
+      SERVER_REGION: ${AWS_REGION:-us-east-1}
+      STORAGE_S3_REGION: ${AWS_REGION:-us-east-1}
       # Set to 'false' for AWS S3, 'true' for S3-compatible services like MinIO
-      GLOBAL_S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-false}
-      # Optional: Custom S3 endpoint for S3-compatible services
-      GLOBAL_S3_ENDPOINT: ${S3_ENDPOINT:-}
+      STORAGE_S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-false}
+      # Optional: Custom S3 endpoint for S3-compatible services (include the scheme, e.g. https://)
+      STORAGE_S3_ENDPOINT: ${S3_ENDPOINT:-}
 
       # Storage API Configuration
-      FILE_SIZE_LIMIT: ${STORAGE_FILE_SIZE_LIMIT:-52428800}  # 50MB default
+      UPLOAD_FILE_SIZE_LIMIT: ${STORAGE_FILE_SIZE_LIMIT:-52428800}  # 50MB default
       TENANT_ID: ${STORAGE_TENANT_ID:-default}
     # Uncomment for CloudWatch logging
     # logging:
