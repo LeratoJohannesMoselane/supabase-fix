@@ -368,7 +368,7 @@ STUDIO_PORT=${STUDIO_PORT}
 # replace if you intend to use Studio outside of localhost
 SUPABASE_PUBLIC_URL=http://localhost:${KONG_HTTP_PORT}
 # Enable webp support
-IMGPROXY_ENABLE_WEBP_DETECTION=true
+IMGPROXY_AUTO_WEBP=true
 # Add your OpenAI API key to enable SQL Editor Assistant
 OPENAI_API_KEY=
 ############

@@ -15,4 +15,4 @@
 
 services:
   db:
-    image: supabase/postgres:15.8.1.085
+    image: supabase/postgres:15.14.1.166

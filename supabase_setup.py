@@ -241,7 +241,7 @@ name: {self.project_name}
 services:
   studio:
     container_name: {self.project_name}-studio
-    image: supabase/studio:2026.08.03-sha-022b374
+    image: supabase/studio:2026.08.24-sha-8ec45b2
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "echo ok"]
@@ -296,7 +296,7 @@ services:
 
   auth:
     container_name: {self.project_name}-auth
-    image: supabase/gotrue:v2.189.0
+    image: supabase/gotrue:v2.196.0
     restart: unless-stopped
     healthcheck:
       test:
@@ -349,7 +349,7 @@ services:
 
   rest:
     container_name: {self.project_name}-rest
-    image: postgrest/postgrest:v14.12
+    image: postgrest/postgrest:v16.2
     restart: unless-stopped
     depends_on:
       db:
@@ -362,7 +362,9 @@ services:
       PGRST_DB_SCHEMAS: ${{PGRST_DB_SCHEMAS}}
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${{JWT_SECRET}}
-      PGRST_DB_USE_LEGACY_GUCS: "false"
+      # `db-use-legacy-gucs` was removed in PostgREST v11.2 and is no longer set.
+      # PostgREST v16 deprecation toggle for embedded-resource target names:
+      PGRST_URL_USE_LEGACY_TARGET_NAMES: "true"
       PGRST_APP_SETTINGS_JWT_SECRET: ${{JWT_SECRET}}
       PGRST_APP_SETTINGS_JWT_EXP: ${{JWT_EXPIRY}}
     command:
@@ -372,7 +374,7 @@ services:
 
   realtime:
     container_name: realtime-dev.{self.project_name}-realtime
-    image: supabase/realtime:v2.102.3
+    image: supabase/realtime:v2.130.0
     restart: unless-stopped
     depends_on:
       db:
@@ -416,7 +418,7 @@ services:
 
   storage:
     container_name: {self.project_name}-storage
-    image: supabase/storage-api:v1.60.4
+    image: supabase/storage-api:v1.72.1
     restart: unless-stopped
     volumes:
       - ./volumes/storage:/var/lib/storage:z
@@ -447,18 +449,18 @@ services:
       PGRST_JWT_SECRET: ${{JWT_SECRET}}
       # Use the internal port for PostgreSQL (5432) for container-to-container communication
       DATABASE_URL: postgres://supabase_storage_admin:${{POSTGRES_PASSWORD}}@${{POSTGRES_HOST}}:5432/${{POSTGRES_DB}}
-      FILE_SIZE_LIMIT: 52428800
+      UPLOAD_FILE_SIZE_LIMIT: 52428800
       STORAGE_BACKEND: file
-      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      STORAGE_FILE_BACKEND_PATH: /var/lib/storage
       TENANT_ID: stub
-      REGION: stub
-      GLOBAL_S3_BUCKET: stub
-      ENABLE_IMAGE_TRANSFORMATION: "true"
+      SERVER_REGION: stub
+      STORAGE_S3_BUCKET: stub
+      IMAGE_TRANSFORMATION_ENABLED: "true"
       IMGPROXY_URL: http://{self.project_name}-imgproxy:5001
 
   imgproxy:
     container_name: {self.project_name}-imgproxy
-    image: darthsim/imgproxy:v3.30.1
+    image: darthsim/imgproxy:v4.0.14
     restart: unless-stopped
     volumes:
       - ./volumes/storage:/var/lib/storage:z
@@ -476,11 +478,11 @@ services:
       IMGPROXY_BIND: ":5001"
       IMGPROXY_LOCAL_FILESYSTEM_ROOT: /
       IMGPROXY_USE_ETAG: "true"
-      IMGPROXY_ENABLE_WEBP_DETECTION: ${{IMGPROXY_ENABLE_WEBP_DETECTION}}
+      IMGPROXY_AUTO_WEBP: ${{IMGPROXY_AUTO_WEBP}}
 
   meta:
     container_name: {self.project_name}-meta
-    image: supabase/postgres-meta:v0.96.6
+    image: supabase/postgres-meta:v0.98.0
     restart: unless-stopped
     depends_on:
       db:
@@ -498,7 +500,7 @@ services:
 
   functions:
     container_name: {self.project_name}-edge-functions
-    image: supabase/edge-runtime:v1.74.0
+    image: supabase/edge-runtime:v1.74.3
     restart: unless-stopped
     volumes:
       - ./volumes/functions:/home/deno/functions:Z
@@ -522,7 +524,7 @@ services:
 
   analytics:
     container_name: {self.project_name}-analytics
-    image: supabase/logflare:1.43.1
+    image: supabase/logflare:1.50.7
     restart: unless-stopped
     ports:
       - "{self.ports['analytics']}:4000"
@@ -560,7 +562,7 @@ services:
 
   db:
     container_name: {self.project_name}-db
-    image: supabase/postgres:17.6.1.136
+    image: supabase/postgres:17.6.1.166
     restart: unless-stopped
     volumes:
       - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
@@ -613,7 +615,7 @@ services:
 
   vector:
     container_name: {self.project_name}-vector
-    image: timberio/vector:0.53.0-alpine
+    image: timberio/vector:0.58.0-alpine
     restart: unless-stopped
     volumes:
       - ./volumes/logs/vector.yml:/etc/vector/vector.yml:ro,z
@@ -633,6 +635,8 @@ services:
       retries: 3
     environment:
       LOGFLARE_API_KEY: ${{LOGFLARE_API_KEY}}
+      # Vector 0.57+ disables ${{VAR}} interpolation in config files by default
+      VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION: "true"
     command:
       [
         "--config",
@@ -643,7 +647,7 @@ services:
 
   pooler:
     container_name: {self.project_name}-pooler
-    image: supabase/supavisor:2.9.5
+    image: supabase/supavisor:2.9.7
     restart: unless-stopped
     ports:
       - "{self.ports['pooler']}:6543"
@@ -786,7 +790,7 @@ STUDIO_PORT={self.ports['studio']}
 # replace if you intend to use Studio outside of localhost
 SUPABASE_PUBLIC_URL=http://localhost:{self.ports['kong_http']}
 # Enable webp support
-IMGPROXY_ENABLE_WEBP_DETECTION=true
+IMGPROXY_AUTO_WEBP=true
 # Add your OpenAI API key to enable SQL Editor Assistant
 OPENAI_API_KEY=
 ############
