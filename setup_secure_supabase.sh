@@ -77,6 +77,9 @@ fi
 mkdir -p "$PROJECT_PATH/volumes/logs"
 mkdir -p "$PROJECT_PATH/volumes/db/data"
 mkdir -p "$PROJECT_PATH/volumes/storage"
+# Studio reads/writes SQL snippets from ./volumes/snippets (SNIPPETS_MANAGEMENT_FOLDER)
+mkdir -p "$PROJECT_PATH/volumes/snippets"
+mkdir -p "$PROJECT_PATH/volumes/functions"
 
 echo ""
 echo "Step 2: Copying initialization files"

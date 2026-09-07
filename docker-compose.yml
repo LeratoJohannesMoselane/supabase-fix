@@ -64,6 +64,13 @@ services:
       # See: docker-compose.logs.yml
       ENABLED_FEATURES_LOGS_ALL: "false"
 
+      # Studio persistence for the SQL snippet library and the Edge Functions editor.
+      # SNIPPETS_MANAGEMENT_FOLDER is mandatory: when it is missing Studio raises
+      # "SNIPPETS_MANAGEMENT_FOLDER env var is not set. Please set it to use snippets
+      # properly." and the snippets panel is unusable. The host directories below must
+      # exist before `docker compose up`, otherwise Docker creates them root-owned and
+      # Studio cannot write volumes/snippets/snippets.json.
+      # Fix/check an existing project with: python3 update_studio_snippets.py
       SNIPPETS_MANAGEMENT_FOLDER: /app/snippets
       EDGE_FUNCTIONS_MANAGEMENT_FOLDER: /app/edge-functions
     volumes:

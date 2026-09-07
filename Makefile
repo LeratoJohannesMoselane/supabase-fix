@@ -19,7 +19,7 @@ PASS ?=
 ROOT_DIR := $(shell pwd)
 PROJECT_PATH := $(ROOT_DIR)/projects/$(PROJECT)
 
-.PHONY: help install-deps create start stop restart status logs backup weekly-backup setup-weekly-backup deploy clean list quickstart
+.PHONY: help install-deps create start stop restart status logs backup weekly-backup setup-weekly-backup deploy clean list quickstart studio-snippets
 
 help:
 	@echo "Supabase Easy Makefile"
@@ -33,7 +33,8 @@ help:
 	@echo "  make restart PROJECT=name        Restart project"
 	@echo "  make status PROJECT=name         Show status"
 	@echo "  make logs PROJECT=name           Follow logs"
-	@echo "  make backup PROJECT=name         Backup DB + storage (one-off)"
+	@echo "  make backup PROJECT=name         Backup DB + storage + Studio snippets (one-off)"
+	@echo "  make studio-snippets PROJECT=name  Check/fix Studio SNIPPETS_MANAGEMENT_FOLDER config"
 	@echo "  make weekly-backup PROJECT=name  Weekly backup with verify + retention"
 	@echo "  make setup-weekly-backup PROJECT=sony  Setup weekly cron Sunday 3am"
 	@echo "  make deploy PROJECT=name PORT=8000        One-command deploy (create+start)"
@@ -114,7 +115,13 @@ backup:
 	@echo "[*] Backing up $(PROJECT)..."
 	@docker exec -t $(PROJECT)-db pg_dumpall -U postgres > $(PROJECT_PATH)/backups/$(PROJECT)_$$(date +%F_%H%M)_pg_dumpall.sql && echo "[OK] DB backup done" || echo "[FAIL] DB backup failed"
 	@tar -czf $(PROJECT_PATH)/backups/$(PROJECT)_$$(date +%F_%H%M)_storage.tar.gz -C $(PROJECT_PATH) volumes/storage 2>/dev/null && echo "[OK] Storage backup done" || echo "[WARN] No storage"
+	@tar -czf $(PROJECT_PATH)/backups/$(PROJECT)_$$(date +%F_%H%M)_snippets.tar.gz -C $(PROJECT_PATH) volumes/snippets 2>/dev/null && echo "[OK] Studio snippets backup done" || echo "[WARN] No volumes/snippets (Studio snippets not configured)"
 	@ls -lh $(PROJECT_PATH)/backups | tail -n 20
+
+studio-snippets:
+	@echo "[*] Checking Studio snippets config for $(PROJECT)..."
+	@mkdir -p $(PROJECT_PATH)/volumes/snippets $(PROJECT_PATH)/volumes/functions
+	@python3 $(ROOT_DIR)/update_studio_snippets.py --project-path $(PROJECT_PATH)
 
 weekly-backup:
 	@echo "[*] Weekly backup for $(PROJECT)..."

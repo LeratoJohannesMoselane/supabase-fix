@@ -91,6 +91,7 @@ class SupabaseProjectGenerator:
             "volumes/api",
             "volumes/db/data",
             "volumes/functions",
+            "volumes/snippets",
             "volumes/logs",
             "volumes/pooler",
             "volumes/storage",
@@ -265,6 +266,16 @@ services:
       LOGFLARE_URL: http://{self.project_name}-analytics:4000
       NEXT_PUBLIC_ENABLE_LOGS: true
       NEXT_ANALYTICS_BACKEND_PROVIDER: postgres
+
+      # Studio needs these two folders: without SNIPPETS_MANAGEMENT_FOLDER Studio
+      # raises "SNIPPETS_MANAGEMENT_FOLDER env var is not set. Please set it to use
+      # snippets properly." and the SQL snippets panel stays broken. Both folders are
+      # bind-mounted from ./volumes so snippets survive `docker compose down`.
+      SNIPPETS_MANAGEMENT_FOLDER: /app/snippets
+      EDGE_FUNCTIONS_MANAGEMENT_FOLDER: /app/edge-functions
+    volumes:
+      - ./volumes/snippets:/app/snippets:z
+      - ./volumes/functions:/app/edge-functions:ro,z
     depends_on:
       analytics:
         condition: service_healthy

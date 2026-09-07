@@ -235,6 +235,9 @@ create_project() {
 
   # Ensure volume dirs
   mkdir -p "$PROJECT_PATH/volumes/logs" "$PROJECT_PATH/volumes/db/data" "$PROJECT_PATH/volumes/storage"
+  # Studio persists SQL snippets in ./volumes/snippets; it must exist and be writable,
+  # otherwise Docker creates it root-owned on first `compose up`.
+  mkdir -p "$PROJECT_PATH/volumes/snippets" "$PROJECT_PATH/volumes/functions"
 
   success "Project files created"
 
@@ -271,9 +274,25 @@ create_project() {
   success "Keys & credentials configured"
 }
 
+ensure_studio_snippets() {
+  # Studio raises "SNIPPETS_MANAGEMENT_FOLDER env var is not set" when the studio
+  # service is missing that variable, which leaves the SQL snippets panel broken.
+  # Projects generated before this was fixed need a one-off patch; it is idempotent.
+  if [ ! -f "$PROJECT_PATH/docker-compose.yml" ]; then
+    return 0
+  fi
+  mkdir -p "$PROJECT_PATH/volumes/snippets" "$PROJECT_PATH/volumes/functions"
+  if python3 "$ROOT_DIR/update_studio_snippets.py" --project-path "$PROJECT_PATH"; then
+    success "Studio snippets configuration verified"
+  else
+    warn "Could not verify Studio snippets configuration (run: python3 update_studio_snippets.py --project-path $PROJECT_PATH)"
+  fi
+}
+
 start_project() {
   info "Starting Supabase stack..."
   cd "$PROJECT_PATH"
+  ensure_studio_snippets
   docker compose up -d
   info "Waiting 12s for services to bootstrap..."
   sleep 12

@@ -160,6 +160,17 @@ else
   info "No storage data or empty, skipping storage tar (file backend empty is normal)"
 fi
 
+# 2b. Studio SQL snippets (volumes/snippets/snippets.json - not part of the DB dump)
+SNIPPETS_FILE="$WEEKLY_DIR/${PROJECT}_${TIMESTAMP}_snippets.tar.gz"
+if [ -f "$PROJECT_PATH/volumes/snippets/snippets.json" ]; then
+  info "Backing up Studio snippets -> $SNIPPETS_FILE"
+  tar -czf "$SNIPPETS_FILE" -C "$PROJECT_PATH" volumes/snippets 2>>"$LOG_FILE" && \
+    { sha256sum "$SNIPPETS_FILE" >> "$CHECKSUM_FILE"; ok "Snippets backup: $(du -h "$SNIPPETS_FILE" | cut -f1)"; } || \
+    warn "Snippets backup failed"
+else
+  info "No volumes/snippets/snippets.json yet - nothing to back up (Studio snippets are created on first save)"
+fi
+
 # 3. Config backup (env + credentials + compose) – ENCRYPTED CONSIDERATION
 CONFIG_FILE="$WEEKLY_DIR/${PROJECT}_${TIMESTAMP}_config.tar.gz"
 info "Backing up config (.env, .credentials, docker-compose.yml) -> $CONFIG_FILE"
@@ -202,6 +213,7 @@ fi
 info "Retention: deleting backups older than $KEEP_DAYS days"
 find "$WEEKLY_DIR" -type f -name "${PROJECT}_*_pg_dumpall.sql.gz" -mtime +$KEEP_DAYS -print -delete | tee -a "$LOG_FILE" || true
 find "$WEEKLY_DIR" -type f -name "${PROJECT}_*_storage.tar.gz" -mtime +$KEEP_DAYS -print -delete | tee -a "$LOG_FILE" || true
+find "$WEEKLY_DIR" -type f -name "${PROJECT}_*_snippets.tar.gz" -mtime +$KEEP_DAYS -print -delete | tee -a "$LOG_FILE" || true
 find "$WEEKLY_DIR" -type f -name "${PROJECT}_*_config.tar.gz" -mtime +$KEEP_DAYS -print -delete | tee -a "$LOG_FILE" || true
 find "$WEEKLY_DIR" -type f -name "${PROJECT}_*_checksums.sha256" -mtime +$KEEP_DAYS -print -delete | tee -a "$LOG_FILE" || true
 

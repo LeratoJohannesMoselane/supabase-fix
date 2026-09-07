@@ -402,6 +402,13 @@ if [ -d "volumes" ]; then
     mkdir -p "$PROJECT_NAME/volumes/db/data"
     mkdir -p "$PROJECT_NAME/volumes/functions/main"
     mkdir -p "$PROJECT_NAME/volumes/functions/hello"
+    # Studio reads/writes SQL snippets from ./volumes/snippets (SNIPPETS_MANAGEMENT_FOLDER)
+    mkdir -p "$PROJECT_NAME/volumes/snippets"
+
+    # Copy the saved snippet library, if there is one to inherit
+    if [ -f "volumes/snippets/snippets.json" ]; then
+        cp "volumes/snippets/snippets.json" "$PROJECT_NAME/volumes/snippets/"
+    fi
     
     # Copy files
     if [ -f "volumes/logs/vector.yml" ]; then
@@ -446,6 +453,7 @@ else
     mkdir -p "$PROJECT_NAME/volumes/pooler"
     mkdir -p "$PROJECT_NAME/volumes/db"
     mkdir -p "$PROJECT_NAME/volumes/functions/main"
+    mkdir -p "$PROJECT_NAME/volumes/snippets"
     echo "Created basic volumes directory structure"
 fi
 

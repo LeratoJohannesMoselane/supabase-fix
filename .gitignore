@@ -51,6 +51,7 @@ wheels/
 
 # Backup files
 *.bak
+*.bak.*
 *~
 
 # Node.js dependencies and package manager files
