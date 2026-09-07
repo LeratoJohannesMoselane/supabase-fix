@@ -7,6 +7,7 @@ We provide 2 methods: **cron (simple)** and **systemd timer (recommended for Ubu
 Backups include per project:
 - PostgreSQL full dump (`pg_dumpall` → `*.sql.gz`)
 - Storage files (`volumes/storage` → `*.tar.gz`) if using file backend
+- Studio SQL snippets (`volumes/snippets` → `*_snippets.tar.gz`) if any were saved
 - Config (`.env`, `.credentials`, `docker-compose.yml` → `*.tar.gz`, chmod 600)
 - SHA256 checksums + gzip verification
 - Global manifest + combined log

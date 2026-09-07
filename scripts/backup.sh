@@ -47,6 +47,15 @@ else
   echo "[INFO] No file storage dir (might be using S3)"
 fi
 
+# Studio SQL snippets (stored as volumes/snippets/snippets.json, not in Postgres)
+echo "[*] Backing up Studio snippets..."
+if [ -d "$PROJECT_PATH/volumes/snippets" ]; then
+  tar -czf "$BACKUP_DIR/${PROJECT}_${STAMP}_snippets.tar.gz" -C "$PROJECT_PATH" volumes/snippets 2>/dev/null && \
+    echo "[OK] Snippets -> $BACKUP_DIR/${PROJECT}_${STAMP}_snippets.tar.gz" || echo "[WARN] Snippets backup failed"
+else
+  echo "[INFO] No volumes/snippets dir (Studio snippets not configured for this project)"
+fi
+
 # Env & credentials (secrets!)
 echo "[*] Backing up .env and .credentials (encrypted?)..."
 tar -czf "$BACKUP_DIR/${PROJECT}_${STAMP}_env.tar.gz" -C "$PROJECT_PATH" .env .credentials docker-compose.yml 2>/dev/null && \
