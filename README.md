@@ -56,27 +56,27 @@ Main files:
 
 The stack includes Supabase Studio, the API gateway (Envoy by default, Kong via override), Auth, PostgREST, Realtime, Storage, ImgProxy, Postgres Meta, Edge Functions, Logflare/Analytics, Vector, Postgres, and Supavisor.
 
-### Image versions (latest published tags, checked 2026-08-28)
+### Image versions (latest published tags, checked 2026-09-08)
 
 | Service | Image | Version |
 | --- | --- | --- |
-| Studio | `supabase/studio` | `2026.08.24-sha-8ec45b2` |
+| Studio | `supabase/studio` | `2026.09.07-sha-7996410` |
 | API gateway (default) | `envoyproxy/envoy` | `v1.39.1` |
 | API gateway (override) | `kong/kong` | `3.9.3` |
 | Auth (GoTrue) | `supabase/gotrue` | `v2.196.0` |
 | REST (PostgREST) | `postgrest/postgrest` | `v16.2` |
-| Realtime | `supabase/realtime` | `v2.130.0` |
-| Storage | `supabase/storage-api` | `v1.72.1` |
+| Realtime | `supabase/realtime` | `v2.134.12` |
+| Storage | `supabase/storage-api` | `v1.74.1` |
 | ImgProxy | `darthsim/imgproxy` | `v4.0.14` |
-| Meta | `supabase/postgres-meta` | `v0.98.0` |
-| Edge Functions | `supabase/edge-runtime` | `v1.74.3` |
-| Database (default) | `supabase/postgres` | `17.6.1.166` |
-| Database (PG15 override) | `supabase/postgres` | `15.14.1.166` |
-| Supavisor (pooler) | `supabase/supavisor` | `2.9.7` |
-| Analytics (Logflare) | `supabase/logflare` | `1.50.7` |
+| Meta | `supabase/postgres-meta` | `v0.99.0` |
+| Edge Functions | `supabase/edge-runtime` | `v1.76.2` |
+| Database (default) | `supabase/postgres` | `17.6.1.169` |
+| Database (PG15 override) | `supabase/postgres` | `15.14.1.169` |
+| Supavisor (pooler) | `supabase/supavisor` | `2.9.12` |
+| Analytics (Logflare) | `supabase/logflare` | `1.50.11` |
 | Vector | `timberio/vector` | `0.58.0-alpine` |
 
-> `supabase/supavisor` is pinned to `2.9.7` because that is the newest tag
+> `supabase/supavisor` is pinned to `2.9.12` because that is the newest tag
 > published to Docker Hub, even though the GitHub project has tagged `v2.9.12`.
 
 #### Environment variables that changed with these versions
@@ -103,7 +103,7 @@ internal configs that reference either hostname resolve to the active gateway.
 
 ### Postgres 17 (default) vs Postgres 15
 
-Postgres 17 (`supabase/postgres:17.6.1.166`) is the new default. If you are
+Postgres 17 (`supabase/postgres:17.6.1.169`) is the new default. If you are
 upgrading an existing Postgres 15 deployment, use `docker-compose.pg15.yml`
 first and then follow the in-place upgrade at
 <https://supabase.com/docs/guides/self-hosting/postgres-upgrade-17>. To stay
@@ -324,6 +324,7 @@ For local Docker-only Postgres, make sure at minimum:
 ```env
 POSTGRES_HOST=db
 POSTGRES_DB=postgres
+POSTGRES_DB_PORT=5432
 POSTGRES_PORT=5432
 KONG_HTTP_PORT=8000
 KONG_HTTPS_PORT=8443
@@ -706,7 +707,8 @@ For production, prefer:
 | --- | --- |
 | `POSTGRES_PASSWORD` | Postgres password used by Supabase services. |
 | `POSTGRES_HOST` | `db` for local compose DB, or RDS/external hostname. |
-| `POSTGRES_PORT` | Host PostgreSQL port. Internal DB container still listens on 5432. |
+| `POSTGRES_PORT` | Host-published PostgreSQL port. |
+| `POSTGRES_DB_PORT` | Port used by services to reach PostgreSQL; normally `5432`, or the RDS listener port. |
 | `JWT_SECRET` | JWT signing secret. Must match `ANON_KEY` and `SERVICE_ROLE_KEY`. |
 | `ANON_KEY` | Public client API key. Safe for browser use, but still respect RLS. |
 | `SERVICE_ROLE_KEY` | Admin key. Server-only. Never put in frontend code. |

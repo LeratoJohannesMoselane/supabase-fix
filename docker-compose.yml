@@ -19,7 +19,7 @@ services:
 
   studio:
     container_name: supabase-studio
-    image: supabase/studio:2026.08.24-sha-8ec45b2
+    image: supabase/studio:2026.09.07-sha-7996410
     restart: unless-stopped
     healthcheck:
       test:
@@ -36,7 +36,7 @@ services:
       HOSTNAME: "0.0.0.0"
 
       STUDIO_PG_META_URL: http://meta:8080
-      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_PORT: ${POSTGRES_DB_PORT:-5432}
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -139,7 +139,7 @@ services:
       API_EXTERNAL_URL: ${API_EXTERNAL_URL}
 
       GOTRUE_DB_DRIVER: postgres
-      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_DB_PORT:-5432}/${POSTGRES_DB}
 
       GOTRUE_SITE_URL: ${SITE_URL}
       GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS}
@@ -266,7 +266,7 @@ services:
       timeout: 5s
       retries: 3
     environment:
-      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_DB_PORT:-5432}/${POSTGRES_DB}
       PGRST_DB_SCHEMAS: ${PGRST_DB_SCHEMAS}
       PGRST_DB_MAX_ROWS: ${PGRST_DB_MAX_ROWS:-1000}
       PGRST_DB_EXTRA_SEARCH_PATH: ${PGRST_DB_EXTRA_SEARCH_PATH:-public}
@@ -297,7 +297,7 @@ services:
   realtime:
     # This container name looks inconsistent but is correct because realtime constructs tenant id by parsing the subdomain
     container_name: realtime-dev.supabase-realtime
-    image: supabase/realtime:v2.130.0
+    image: supabase/realtime:v2.134.12
     restart: unless-stopped
     depends_on:
       db:
@@ -316,7 +316,7 @@ services:
     environment:
       PORT: 4000
       DB_HOST: ${POSTGRES_HOST}
-      DB_PORT: ${POSTGRES_PORT}
+      DB_PORT: ${POSTGRES_DB_PORT:-5432}
       DB_USER: supabase_admin
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_NAME: ${POSTGRES_DB}
@@ -343,7 +343,7 @@ services:
   # To use S3 backed storage: docker compose -f docker-compose.yml -f docker-compose.s3.yml up
   storage:
     container_name: supabase-storage
-    image: supabase/storage-api:v1.72.1
+    image: supabase/storage-api:v1.74.1
     restart: unless-stopped
     depends_on:
       db:
@@ -379,7 +379,7 @@ services:
       # For Podman, use: JWT_JWKS: ${JWT_JWKS}
       #JWT_JWKS: ${JWT_JWKS:-{"keys":[]}}
 
-      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_DB_PORT:-5432}/${POSTGRES_DB}
       STORAGE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL}
       REQUEST_ALLOW_X_FORWARDED_PATH: "true"
       # storage-api v1.7x option names (the legacy names in comments still work as fallbacks)
@@ -437,7 +437,7 @@ services:
 
   meta:
     container_name: supabase-meta
-    image: supabase/postgres-meta:v0.98.0
+    image: supabase/postgres-meta:v0.99.0
     restart: unless-stopped
     depends_on:
       db:
@@ -446,7 +446,7 @@ services:
     environment:
       PG_META_PORT: 8080
       PG_META_DB_HOST: ${POSTGRES_HOST}
-      PG_META_DB_PORT: ${POSTGRES_PORT}
+      PG_META_DB_PORT: ${POSTGRES_DB_PORT:-5432}
       PG_META_DB_NAME: ${POSTGRES_DB}
       PG_META_DB_USER: postgres
       PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
@@ -454,7 +454,7 @@ services:
 
   functions:
     container_name: supabase-edge-functions
-    image: supabase/edge-runtime:v1.74.3
+    image: supabase/edge-runtime:v1.76.2
     restart: unless-stopped
     volumes:
       - ./volumes/functions:/home/deno/functions:z
@@ -482,7 +482,7 @@ services:
       # New opaque API keys
       SUPABASE_PUBLISHABLE_KEYS: "{\"default\":\"${SUPABASE_PUBLISHABLE_KEY:-}\"}"
       SUPABASE_SECRET_KEYS: "{\"default\":\"${SUPABASE_SECRET_KEY:-}\"}"
-      SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_DB_PORT:-5432}/${POSTGRES_DB}
       # TODO: Allow configuring VERIFY_JWT per function.
       VERIFY_JWT: "${FUNCTIONS_VERIFY_JWT}"
     command:
@@ -496,7 +496,7 @@ services:
   db:
     container_name: supabase-db
     # To upgrade an existing Postgres 15 database in place, see utils/upgrade-pg17.sh.
-    image: supabase/postgres:17.6.1.166
+    image: supabase/postgres:17.6.1.169
     restart: unless-stopped
     volumes:
       - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
@@ -531,8 +531,8 @@ services:
       retries: 10
     environment:
       POSTGRES_HOST: /var/run/postgresql
-      PGPORT: ${POSTGRES_PORT}
-      POSTGRES_PORT: ${POSTGRES_PORT}
+      PGPORT: 5432
+      POSTGRES_PORT: 5432
       PGPASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       PGDATABASE: ${POSTGRES_DB}
@@ -551,7 +551,7 @@ services:
   # Update the DATABASE_URL if you are using an external Postgres database
   supavisor:
     container_name: supabase-pooler
-    image: supabase/supavisor:2.9.7
+    image: supabase/supavisor:2.9.12
     restart: unless-stopped
     ports:
       - ${POSTGRES_PORT}:5432
@@ -578,11 +578,11 @@ services:
         condition: service_healthy
     environment:
       PORT: 4000
-      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_PORT: ${POSTGRES_DB_PORT:-5432}
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      DATABASE_URL: ecto://supabase_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/_supabase
+      DATABASE_URL: ecto://supabase_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_DB_PORT:-5432}/_supabase
       CLUSTER_POSTGRES: "true"
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
       VAULT_ENC_KEY: ${VAULT_ENC_KEY}

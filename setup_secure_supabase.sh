@@ -1,6 +1,7 @@
 #!/bin/bash
 # Secure Supabase Setup Script
 # This script automates the process of creating a new secure Supabase deployment
+set -Eeuo pipefail
 
 # Display banner
 echo "=================================================="
@@ -16,7 +17,7 @@ if [ $# -lt 1 ]; then
 fi
 
 PROJECT_NAME=$1
-BASE_PORT=$2
+BASE_PORT=${2:-}
 
 # Define projects directory - this matches what supabase_manager.py expects
 PROJECTS_DIR="projects"
@@ -62,9 +63,9 @@ fi
 
 echo "Step 1: Creating/updating Supabase project: $PROJECT_NAME"
 if [ -z "$BASE_PORT" ]; then
-    ./supabase_manager.py create "$PROJECT_NAME" || true
+    ./supabase_manager.py create "$PROJECT_NAME"
 else
-    ./supabase_manager.py create "$PROJECT_NAME" --base-port "$BASE_PORT" || true
+    ./supabase_manager.py create "$PROJECT_NAME" --base-port "$BASE_PORT"
 fi
 
 # Check if project directory exists after creation attempt
@@ -113,11 +114,29 @@ echo "Step 5: Starting Supabase deployment"
 echo "Changing directory to $PROJECT_PATH"
 cd "$PROJECT_PATH" || exit 1 # Exit if cd fails
 echo "Running docker compose up..."
-docker compose up -d
+if ! docker compose up -d; then
+    echo "Error: Docker Compose failed to start the deployment." >&2
+    docker compose ps || true
+    exit 1
+fi
 
 # Wait for services to be ready
 echo "Waiting for services to be ready..."
-sleep 10
+for attempt in {1..30}; do
+    compose_status=$(docker compose ps --format json)
+    if echo "$compose_status" | grep -q '"State":"exited"'; then
+        :
+    elif echo "$compose_status" | grep -q '"State":"running"'; then
+        break
+    fi
+    if [ "$attempt" -eq 30 ]; then
+        echo "Error: One or more containers did not become healthy." >&2
+        docker compose ps
+        docker compose logs --tail=80
+        exit 1
+    fi
+    sleep 2
+done
 
 # Get port information from the .env file (already in the project directory)
 STUDIO_PORT=$(grep "STUDIO_PORT=" ".env" | cut -d'=' -f2)

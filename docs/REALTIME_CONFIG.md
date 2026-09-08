@@ -393,7 +393,7 @@ environment:
 
   # Database Connection
   DB_HOST: ${POSTGRES_HOST}
-  DB_PORT: ${POSTGRES_PORT}
+  DB_PORT: ${POSTGRES_DB_PORT:-5432}
   DB_USER: supabase_admin
   DB_PASSWORD: ${POSTGRES_PASSWORD}
   DB_NAME: ${POSTGRES_DB}

@@ -175,7 +175,7 @@ serve((_req) => new Response("Hello from Edge Functions!"));
         
         # Write to the project directory
         vector_path = self.project_dir / "volumes/logs/vector.yml"
-        vector_path.write_text(vector_config)
+        vector_path.write_text(vector_config, encoding="utf-8")
 
     def _create_project_directory(self):
         """Create the project directory if it doesn't exist."""
@@ -241,7 +241,7 @@ name: {self.project_name}
 services:
   studio:
     container_name: {self.project_name}-studio
-    image: supabase/studio:2026.08.24-sha-8ec45b2
+    image: supabase/studio:2026.09.07-sha-7996410
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "echo ok"]
@@ -374,7 +374,7 @@ services:
 
   realtime:
     container_name: realtime-dev.{self.project_name}-realtime
-    image: supabase/realtime:v2.130.0
+    image: supabase/realtime:v2.134.12
     restart: unless-stopped
     depends_on:
       db:
@@ -418,7 +418,7 @@ services:
 
   storage:
     container_name: {self.project_name}-storage
-    image: supabase/storage-api:v1.72.1
+    image: supabase/storage-api:v1.74.1
     restart: unless-stopped
     volumes:
       - ./volumes/storage:/var/lib/storage:z
@@ -482,7 +482,7 @@ services:
 
   meta:
     container_name: {self.project_name}-meta
-    image: supabase/postgres-meta:v0.98.0
+    image: supabase/postgres-meta:v0.99.0
     restart: unless-stopped
     depends_on:
       db:
@@ -500,7 +500,7 @@ services:
 
   functions:
     container_name: {self.project_name}-edge-functions
-    image: supabase/edge-runtime:v1.74.3
+    image: supabase/edge-runtime:v1.76.2
     restart: unless-stopped
     volumes:
       - ./volumes/functions:/home/deno/functions:Z
@@ -524,7 +524,7 @@ services:
 
   analytics:
     container_name: {self.project_name}-analytics
-    image: supabase/logflare:1.50.7
+    image: supabase/logflare:1.50.11
     restart: unless-stopped
     ports:
       - "{self.ports['analytics']}:4000"
@@ -562,7 +562,7 @@ services:
 
   db:
     container_name: {self.project_name}-db
-    image: supabase/postgres:17.6.1.166
+    image: supabase/postgres:17.6.1.169
     restart: unless-stopped
     volumes:
       - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
@@ -647,7 +647,7 @@ services:
 
   pooler:
     container_name: {self.project_name}-pooler
-    image: supabase/supavisor:2.9.7
+    image: supabase/supavisor:2.9.12
     restart: unless-stopped
     ports:
       - "{self.ports['pooler']}:6543"
@@ -735,6 +735,8 @@ VAULT_ENC_KEY={vault_enc_key}
 # This is where other containers connect to the DB container internally
 POSTGRES_HOST={self.project_name}-db
 POSTGRES_DB=postgres
+# Internal database listener used by service-to-service connections.
+POSTGRES_DB_PORT=5432
 # This port is used for external connections from your host
 POSTGRES_PORT={self.ports['postgres']}
 # default user is postgres
@@ -818,8 +820,8 @@ GOOGLE_PROJECT_NUMBER=GOOGLE_PROJECT_NUMBER"""
             # Use path relative to this script's location
             vector_path = Path(__file__).parent / "vector.yml"
             if vector_path.exists():
-                self.templates["vector"] = vector_path.read_text()
-                print(f"Using vector.yml template from {vector_path}")
+                self.templates["vector"] = vector_path.read_text(encoding="utf-8")
+                print("Using vector.yml template from repository")
             else:
                 # Fallback to the default template if file doesn't exist
                 self.templates["vector"] = """# Default Vector configuration for Supabase
