@@ -3,6 +3,14 @@
 # This script automates the process of creating a new secure Supabase deployment
 set -Eeuo pipefail
 
+# Docker commands may require sudo, but the generator and virtual environment
+# must run as the invoking user so generated files remain user-owned.
+if [ "${EUID:-$(id -u)}" -eq 0 ]; then
+    echo "Error: Do not run this setup script with sudo." >&2
+    echo "Run it as your normal user; grant that user Docker access instead." >&2
+    exit 1
+fi
+
 # Display banner
 echo "=================================================="
 echo "      Secure Supabase Deployment Setup"
@@ -23,8 +31,17 @@ BASE_PORT=${2:-}
 PROJECTS_DIR="projects"
 PROJECT_PATH="$PROJECTS_DIR/$PROJECT_NAME"
 
-# Create projects directory if it doesn't exist
-mkdir -p "$PROJECTS_DIR"
+# Create projects directory if it doesn't exist and verify that it is writable.
+if ! mkdir -p "$PROJECTS_DIR"; then
+    echo "Error: Cannot create '$PROJECTS_DIR'." >&2
+    echo "Fix ownership with: sudo chown -R $USER:$USER '$PROJECTS_DIR'" >&2
+    exit 1
+fi
+if [ ! -w "$PROJECTS_DIR" ]; then
+    echo "Error: '$PROJECTS_DIR' is not writable by user '$USER'." >&2
+    echo "Fix ownership with: sudo chown -R $USER:$USER '$PROJECTS_DIR'" >&2
+    exit 1
+fi
 
 # Prompt for dashboard credentials
 echo "Setting up dashboard credentials:"
