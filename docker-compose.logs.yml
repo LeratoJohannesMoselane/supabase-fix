@@ -10,7 +10,7 @@ services:
   studio:
     depends_on:
       analytics:
-        condition: service_healthy
+        condition: service_started
     environment:
       LOGFLARE_PRIVATE_ACCESS_TOKEN: ${LOGFLARE_PRIVATE_ACCESS_TOKEN}
       LOGFLARE_URL: http://analytics:4000
@@ -18,7 +18,7 @@ services:
 
   analytics:
     container_name: supabase-analytics
-    image: supabase/logflare:1.50.7
+    image: supabase/logflare:1.50.11
     restart: unless-stopped
     #ports:
     #  - 4000:4000
@@ -35,14 +35,14 @@ services:
     depends_on:
       db:
         # Disable this if you are using an external Postgres database
-        condition: service_healthy
+        condition: service_started
     environment:
       LOGFLARE_NODE_HOST: 127.0.0.1
 
       DB_USERNAME: supabase_admin
       DB_DATABASE: _supabase
       DB_HOSTNAME: ${POSTGRES_HOST}
-      DB_PORT: ${POSTGRES_PORT}
+      DB_PORT: ${POSTGRES_DB_PORT:-5432}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_SCHEMA: _analytics
 
@@ -58,7 +58,7 @@ services:
 
       # Comment out the following two variables when switching to
       # the BigQuery backend for logs
-      POSTGRES_BACKEND_URL: postgresql://supabase_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/_supabase
+      POSTGRES_BACKEND_URL: postgresql://supabase_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_DB_PORT:-5432}/_supabase
       POSTGRES_BACKEND_SCHEMA: _analytics
 
       # Uncomment to use the BigQuery backend for logs
@@ -87,7 +87,7 @@ services:
       retries: 3
     depends_on:
       analytics:
-        condition: service_healthy
+        condition: service_started
     environment:
       LOGFLARE_PUBLIC_ACCESS_TOKEN: ${LOGFLARE_PUBLIC_ACCESS_TOKEN}
       # Vector 0.57+ disables ${VAR} interpolation inside config files by default.

@@ -122,7 +122,6 @@ serve((_req) => new Response("Hello from Edge Functions!"));
         (self.project_dir / ".env").write_text(self.templates["env"])
         (self.project_dir / "volumes/api/kong.yml").write_text(self.templates["kong"])
         # Create docker-compose.override.yml to fix Kong YAML parsing issues
-        self._create_docker_compose_override()
         self._write_vector_config()  # Use the dynamic vector config method
         (self.project_dir / "volumes/pooler/pooler.exs").write_text(self.templates["pooler"])
         (self.project_dir / "volumes/db/_supabase.sql").write_text(self.templates["supabase_sql"])
@@ -146,18 +145,6 @@ serve((_req) => new Response("Hello from Edge Functions!"));
                 pass
         (self.project_dir / "README.md").write_text(self.templates["readme"])
         
-    def _create_docker_compose_override(self):
-        """Create docker-compose.override.yml to fix Kong YAML parsing issues."""
-        override_content = """services:
-  kong:
-    volumes:
-      - ./volumes/api/kong.yml:/home/kong/kong.yml:ro,z
-    entrypoint: /docker-entrypoint.sh kong docker-start
-"""
-        override_path = self.project_dir / "docker-compose.override.yml"
-        override_path.write_text(override_content)
-        print(f"Created docker-compose.override.yml to fix Kong YAML parsing issues")
-
     def _write_vector_config(self):
         """Write the vector.yml config with dynamic project/service names."""
         vector_template = self.templates["vector"]
@@ -175,7 +162,7 @@ serve((_req) => new Response("Hello from Edge Functions!"));
         
         # Write to the project directory
         vector_path = self.project_dir / "volumes/logs/vector.yml"
-        vector_path.write_text(vector_config)
+        vector_path.write_text(vector_config, encoding="utf-8")
 
     def _create_project_directory(self):
         """Create the project directory if it doesn't exist."""
@@ -241,7 +228,7 @@ name: {self.project_name}
 services:
   studio:
     container_name: {self.project_name}-studio
-    image: supabase/studio:2026.08.24-sha-8ec45b2
+    image: supabase/studio:2026.09.07-sha-7996410
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "echo ok"]
@@ -267,7 +254,7 @@ services:
       NEXT_ANALYTICS_BACKEND_PROVIDER: postgres
     depends_on:
       analytics:
-        condition: service_healthy
+        condition: service_started
 
   kong:
     container_name: {self.project_name}-kong
@@ -277,10 +264,10 @@ services:
       - "{self.ports['kong_http']}:8000/tcp"
       - "{self.ports['kong_https']}:8443/tcp"
     volumes:
-      - ./volumes/api/kong.yml:/home/kong/temp.yml:ro,z
+      - ./volumes/api/kong.yml:/home/kong/kong.yml:ro,z
     depends_on:
       analytics:
-        condition: service_healthy
+        condition: service_started
     environment:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
@@ -292,7 +279,6 @@ services:
       SUPABASE_SERVICE_KEY: ${{SERVICE_ROLE_KEY}}
       DASHBOARD_USERNAME: ${{DASHBOARD_USERNAME}}
       DASHBOARD_PASSWORD: ${{DASHBOARD_PASSWORD}}
-    entrypoint: bash -c 'eval "echo \\"$$(cat ~/temp.yml)\\"" > ~/kong.yml && /docker-entrypoint.sh kong docker-start'
 
   auth:
     container_name: {self.project_name}-auth
@@ -313,9 +299,9 @@ services:
       retries: 3
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started
       analytics:
-        condition: service_healthy
+        condition: service_started
     environment:
       GOTRUE_API_HOST: 0.0.0.0
       GOTRUE_API_PORT: 9999
@@ -353,9 +339,9 @@ services:
     restart: unless-stopped
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started
       analytics:
-        condition: service_healthy
+        condition: service_started
     environment:
       # Use the internal port for PostgreSQL (5432) for container-to-container communication
       PGRST_DB_URI: postgres://authenticator:${{POSTGRES_PASSWORD}}@${{POSTGRES_HOST}}:5432/${{POSTGRES_DB}}
@@ -374,13 +360,13 @@ services:
 
   realtime:
     container_name: realtime-dev.{self.project_name}-realtime
-    image: supabase/realtime:v2.130.0
+    image: supabase/realtime:v2.134.12
     restart: unless-stopped
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started
       analytics:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test:
         [
@@ -418,7 +404,7 @@ services:
 
   storage:
     container_name: {self.project_name}-storage
-    image: supabase/storage-api:v1.72.1
+    image: supabase/storage-api:v1.74.1
     restart: unless-stopped
     volumes:
       - ./volumes/storage:/var/lib/storage:z
@@ -437,7 +423,7 @@ services:
       retries: 3
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started
       rest:
         condition: service_started
       imgproxy:
@@ -482,13 +468,13 @@ services:
 
   meta:
     container_name: {self.project_name}-meta
-    image: supabase/postgres-meta:v0.98.0
+    image: supabase/postgres-meta:v0.99.0
     restart: unless-stopped
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started
       analytics:
-        condition: service_healthy
+        condition: service_started
     environment:
       PG_META_PORT: 8080
       PG_META_DB_HOST: ${{POSTGRES_HOST}}
@@ -500,13 +486,13 @@ services:
 
   functions:
     container_name: {self.project_name}-edge-functions
-    image: supabase/edge-runtime:v1.74.3
+    image: supabase/edge-runtime:v1.76.2
     restart: unless-stopped
     volumes:
       - ./volumes/functions:/home/deno/functions:Z
     depends_on:
       analytics:
-        condition: service_healthy
+        condition: service_started
     environment:
       JWT_SECRET: ${{JWT_SECRET}}
       SUPABASE_URL: http://{self.project_name}-kong:8000
@@ -524,7 +510,7 @@ services:
 
   analytics:
     container_name: {self.project_name}-analytics
-    image: supabase/logflare:1.50.7
+    image: supabase/logflare:1.50.11
     restart: unless-stopped
     ports:
       - "{self.ports['analytics']}:4000"
@@ -540,7 +526,7 @@ services:
       retries: 10
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started
     environment:
       LOGFLARE_NODE_HOST: 127.0.0.1
       DB_USERNAME: supabase_admin
@@ -562,12 +548,12 @@ services:
 
   db:
     container_name: {self.project_name}-db
-    image: supabase/postgres:17.6.1.166
+    image: supabase/postgres:17.6.1.169
     restart: unless-stopped
     volumes:
       - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
       - ./volumes/db/webhooks.sql:/docker-entrypoint-initdb.d/init-scripts/98-webhooks.sql:Z
-      - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
+      - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/00-roles.sql:Z
       - ./volumes/db/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:Z
       - ./volumes/db/data:/var/lib/postgresql/data:Z
       - ./volumes/db/_supabase.sql:/docker-entrypoint-initdb.d/migrations/97-_supabase.sql:Z
@@ -591,13 +577,14 @@ services:
       retries: 10
     depends_on:
       vector:
-        condition: service_healthy
+        condition: service_started
     ports:
       - "{self.ports['postgres']}:5432"
     environment:
       POSTGRES_HOST: /var/run/postgresql
       PGPORT: 5432
       POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
       PGPASSWORD: ${{POSTGRES_PASSWORD}}
       POSTGRES_PASSWORD: ${{POSTGRES_PASSWORD}}
       PGDATABASE: ${{POSTGRES_DB}}
@@ -647,7 +634,7 @@ services:
 
   pooler:
     container_name: {self.project_name}-pooler
-    image: supabase/supavisor:2.9.7
+    image: supabase/supavisor:2.9.12
     restart: unless-stopped
     ports:
       - "{self.ports['pooler']}:6543"
@@ -669,9 +656,9 @@ services:
       retries: 5
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started
       analytics:
-        condition: service_healthy
+        condition: service_started
     environment:
       PORT: 4000
       POSTGRES_PORT: 5432
@@ -735,6 +722,9 @@ VAULT_ENC_KEY={vault_enc_key}
 # This is where other containers connect to the DB container internally
 POSTGRES_HOST={self.project_name}-db
 POSTGRES_DB=postgres
+POSTGRES_USER=postgres
+# Internal database listener used by service-to-service connections.
+POSTGRES_DB_PORT=5432
 # This port is used for external connections from your host
 POSTGRES_PORT={self.ports['postgres']}
 # default user is postgres
@@ -818,8 +808,8 @@ GOOGLE_PROJECT_NUMBER=GOOGLE_PROJECT_NUMBER"""
             # Use path relative to this script's location
             vector_path = Path(__file__).parent / "vector.yml"
             if vector_path.exists():
-                self.templates["vector"] = vector_path.read_text()
-                print(f"Using vector.yml template from {vector_path}")
+                self.templates["vector"] = vector_path.read_text(encoding="utf-8")
+                print("Using vector.yml template from repository")
             else:
                 # Fallback to the default template if file doesn't exist
                 self.templates["vector"] = """# Default Vector configuration for Supabase
@@ -1439,7 +1429,40 @@ alter schema _realtime owner to :pguser;"""
         self.templates["roles_sql"] = """-- NOTE: change to your own passwords for production environments
 \\set pgpass `echo "$POSTGRES_PASSWORD"`
 
-ALTER USER authenticator WITH PASSWORD :'pgpass';
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'supabase_admin') THEN
+    CREATE ROLE supabase_admin LOGIN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    CREATE ROLE anon NOLOGIN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    CREATE ROLE authenticated NOLOGIN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+    CREATE ROLE service_role NOLOGIN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticator') THEN
+    CREATE ROLE authenticator LOGIN NOINHERIT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pgbouncer') THEN
+    CREATE ROLE pgbouncer LOGIN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'supabase_auth_admin') THEN
+    CREATE ROLE supabase_auth_admin LOGIN NOINHERIT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'supabase_storage_admin') THEN
+    CREATE ROLE supabase_storage_admin LOGIN NOINHERIT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'supabase_functions_admin') THEN
+    CREATE ROLE supabase_functions_admin LOGIN NOINHERIT;
+  END IF;
+END
+$$;
+
+ALTER ROLE supabase_admin WITH PASSWORD :'pgpass';
+ALTER ROLE authenticator WITH PASSWORD :'pgpass';
 ALTER USER pgbouncer WITH PASSWORD :'pgpass';
 ALTER USER supabase_auth_admin WITH PASSWORD :'pgpass';
 ALTER USER supabase_functions_admin WITH PASSWORD :'pgpass';
