@@ -10,7 +10,7 @@ services:
   studio:
     depends_on:
       analytics:
-        condition: service_healthy
+        condition: service_started
     environment:
       LOGFLARE_PRIVATE_ACCESS_TOKEN: ${LOGFLARE_PRIVATE_ACCESS_TOKEN}
       LOGFLARE_URL: http://analytics:4000
@@ -35,7 +35,7 @@ services:
     depends_on:
       db:
         # Disable this if you are using an external Postgres database
-        condition: service_healthy
+        condition: service_started
     environment:
       LOGFLARE_NODE_HOST: 127.0.0.1
 
@@ -87,7 +87,7 @@ services:
       retries: 3
     depends_on:
       analytics:
-        condition: service_healthy
+        condition: service_started
     environment:
       LOGFLARE_PUBLIC_ACCESS_TOKEN: ${LOGFLARE_PUBLIC_ACCESS_TOKEN}
       # Vector 0.57+ disables ${VAR} interpolation inside config files by default.

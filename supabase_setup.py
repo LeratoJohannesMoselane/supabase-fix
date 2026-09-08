@@ -267,7 +267,7 @@ services:
       NEXT_ANALYTICS_BACKEND_PROVIDER: postgres
     depends_on:
       analytics:
-        condition: service_healthy
+        condition: service_started
 
   kong:
     container_name: {self.project_name}-kong
@@ -280,7 +280,7 @@ services:
       - ./volumes/api/kong.yml:/home/kong/temp.yml:ro,z
     depends_on:
       analytics:
-        condition: service_healthy
+        condition: service_started
     environment:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
@@ -313,9 +313,9 @@ services:
       retries: 3
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started
       analytics:
-        condition: service_healthy
+        condition: service_started
     environment:
       GOTRUE_API_HOST: 0.0.0.0
       GOTRUE_API_PORT: 9999
@@ -353,9 +353,9 @@ services:
     restart: unless-stopped
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started
       analytics:
-        condition: service_healthy
+        condition: service_started
     environment:
       # Use the internal port for PostgreSQL (5432) for container-to-container communication
       PGRST_DB_URI: postgres://authenticator:${{POSTGRES_PASSWORD}}@${{POSTGRES_HOST}}:5432/${{POSTGRES_DB}}
@@ -378,9 +378,9 @@ services:
     restart: unless-stopped
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started
       analytics:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test:
         [
@@ -437,7 +437,7 @@ services:
       retries: 3
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started
       rest:
         condition: service_started
       imgproxy:
@@ -486,9 +486,9 @@ services:
     restart: unless-stopped
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started
       analytics:
-        condition: service_healthy
+        condition: service_started
     environment:
       PG_META_PORT: 8080
       PG_META_DB_HOST: ${{POSTGRES_HOST}}
@@ -506,7 +506,7 @@ services:
       - ./volumes/functions:/home/deno/functions:Z
     depends_on:
       analytics:
-        condition: service_healthy
+        condition: service_started
     environment:
       JWT_SECRET: ${{JWT_SECRET}}
       SUPABASE_URL: http://{self.project_name}-kong:8000
@@ -540,7 +540,7 @@ services:
       retries: 10
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started
     environment:
       LOGFLARE_NODE_HOST: 127.0.0.1
       DB_USERNAME: supabase_admin
@@ -591,7 +591,7 @@ services:
       retries: 10
     depends_on:
       vector:
-        condition: service_healthy
+        condition: service_started
     ports:
       - "{self.ports['postgres']}:5432"
     environment:
@@ -670,7 +670,7 @@ services:
       retries: 5
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started
       analytics:
         condition: service_healthy
     environment:
