@@ -598,6 +598,7 @@ services:
       POSTGRES_HOST: /var/run/postgresql
       PGPORT: 5432
       POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
       PGPASSWORD: ${{POSTGRES_PASSWORD}}
       POSTGRES_PASSWORD: ${{POSTGRES_PASSWORD}}
       PGDATABASE: ${{POSTGRES_DB}}
@@ -735,6 +736,7 @@ VAULT_ENC_KEY={vault_enc_key}
 # This is where other containers connect to the DB container internally
 POSTGRES_HOST={self.project_name}-db
 POSTGRES_DB=postgres
+POSTGRES_USER=postgres
 # Internal database listener used by service-to-service connections.
 POSTGRES_DB_PORT=5432
 # This port is used for external connections from your host
