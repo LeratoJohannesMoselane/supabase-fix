@@ -114,29 +114,13 @@ echo "Step 5: Starting Supabase deployment"
 echo "Changing directory to $PROJECT_PATH"
 cd "$PROJECT_PATH" || exit 1 # Exit if cd fails
 echo "Running docker compose up..."
-if ! docker compose up -d; then
+if ! docker compose up -d --wait --wait-timeout 180; then
     echo "Error: Docker Compose failed to start the deployment." >&2
     docker compose ps || true
     exit 1
 fi
 
-# Wait for services to be ready
-echo "Waiting for services to be ready..."
-for attempt in {1..30}; do
-    compose_status=$(docker compose ps --format json)
-    if echo "$compose_status" | grep -q '"State":"exited"'; then
-        :
-    elif echo "$compose_status" | grep -q '"State":"running"'; then
-        break
-    fi
-    if [ "$attempt" -eq 30 ]; then
-        echo "Error: One or more containers did not become healthy." >&2
-        docker compose ps
-        docker compose logs --tail=80
-        exit 1
-    fi
-    sleep 2
-done
+echo "All Supabase services are running and healthy."
 
 # Get port information from the .env file (already in the project directory)
 STUDIO_PORT=$(grep "STUDIO_PORT=" ".env" | cut -d'=' -f2)
