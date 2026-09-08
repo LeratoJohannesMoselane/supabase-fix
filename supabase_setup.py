@@ -122,7 +122,6 @@ serve((_req) => new Response("Hello from Edge Functions!"));
         (self.project_dir / ".env").write_text(self.templates["env"])
         (self.project_dir / "volumes/api/kong.yml").write_text(self.templates["kong"])
         # Create docker-compose.override.yml to fix Kong YAML parsing issues
-        self._create_docker_compose_override()
         self._write_vector_config()  # Use the dynamic vector config method
         (self.project_dir / "volumes/pooler/pooler.exs").write_text(self.templates["pooler"])
         (self.project_dir / "volumes/db/_supabase.sql").write_text(self.templates["supabase_sql"])
@@ -146,18 +145,6 @@ serve((_req) => new Response("Hello from Edge Functions!"));
                 pass
         (self.project_dir / "README.md").write_text(self.templates["readme"])
         
-    def _create_docker_compose_override(self):
-        """Create docker-compose.override.yml to fix Kong YAML parsing issues."""
-        override_content = """services:
-  kong:
-    volumes:
-      - ./volumes/api/kong.yml:/home/kong/kong.yml:ro,z
-    entrypoint: /docker-entrypoint.sh kong docker-start
-"""
-        override_path = self.project_dir / "docker-compose.override.yml"
-        override_path.write_text(override_content)
-        print(f"Created docker-compose.override.yml to fix Kong YAML parsing issues")
-
     def _write_vector_config(self):
         """Write the vector.yml config with dynamic project/service names."""
         vector_template = self.templates["vector"]
