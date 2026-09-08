@@ -264,7 +264,7 @@ services:
       - "{self.ports['kong_http']}:8000/tcp"
       - "{self.ports['kong_https']}:8443/tcp"
     volumes:
-      - ./volumes/api/kong.yml:/home/kong/temp.yml:ro,z
+      - ./volumes/api/kong.yml:/home/kong/kong.yml:ro,z
     depends_on:
       analytics:
         condition: service_started
@@ -279,7 +279,6 @@ services:
       SUPABASE_SERVICE_KEY: ${{SERVICE_ROLE_KEY}}
       DASHBOARD_USERNAME: ${{DASHBOARD_USERNAME}}
       DASHBOARD_PASSWORD: ${{DASHBOARD_PASSWORD}}
-    entrypoint: bash -c 'eval "echo \\"$$(cat ~/temp.yml)\\"" > ~/kong.yml && /docker-entrypoint.sh kong docker-start'
 
   auth:
     container_name: {self.project_name}-auth
@@ -659,7 +658,7 @@ services:
       db:
         condition: service_started
       analytics:
-        condition: service_healthy
+        condition: service_started
     environment:
       PORT: 4000
       POSTGRES_PORT: 5432
